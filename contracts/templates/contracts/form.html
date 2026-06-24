@@ -1,0 +1,915 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --c-bg: #F7F6F3;
+    --c-surface: #FFFFFF;
+    --c-border: rgba(0,0,0,0.08);
+    --c-border-strong: rgba(0,0,0,0.15);
+    --c-text: #1A1917;
+    --c-muted: #6B6A66;
+    --c-hint: #A8A79F;
+    --c-accent: #2563EB;
+    --c-accent-light: #EFF4FF;
+    --c-success: #16A34A;
+    --c-success-light: #F0FDF4;
+    --c-danger: #DC2626;
+    --c-danger-light: #FEF2F2;
+    --c-amber-light: #FFFBEB;
+    --c-amber: #D97706;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--c-bg);
+    color: var(--c-text);
+  }
+
+  .cc-wrapper {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+
+  /* ── Page header ── */
+  .cc-header {
+    margin-bottom: 2rem;
+  }
+  .cc-header h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--c-text);
+  }
+  .cc-header p {
+    font-size: 0.875rem;
+    color: var(--c-muted);
+    margin-top: 4px;
+  }
+
+  /* ── Step indicator ── */
+  .steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 2rem;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+  .step-bubble {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid var(--c-border-strong);
+    background: var(--c-surface);
+    color: var(--c-muted);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-family: 'DM Mono', monospace;
+    flex-shrink: 0;
+  }
+  .step-bubble.active {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+  }
+  .step-bubble.done {
+    background: var(--c-success);
+    border-color: var(--c-success);
+    color: #fff;
+  }
+  .step-text {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--c-muted);
+    white-space: nowrap;
+    transition: color 0.3s;
+  }
+  .step-text.active { color: var(--c-accent); }
+  .step-text.done   { color: var(--c-success); }
+  .step-line {
+    flex: 1;
+    height: 1px;
+    background: var(--c-border);
+    margin: 0 10px;
+    transition: background 0.4s;
+  }
+  .step-line.done { background: var(--c-success); }
+
+  /* ── Progress bar ── */
+  .progress-track {
+    height: 3px;
+    background: var(--c-border);
+    border-radius: 3px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--c-accent), #60A5FA);
+    border-radius: 3px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── Card ── */
+  .cc-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .cc-card-body { padding: 1.75rem; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-hint);
+    margin-bottom: 1.25rem;
+  }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  @media (max-width: 600px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* ── Fields ── */
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--c-muted);
+  }
+  .field .req { color: var(--c-danger); margin-left: 2px; }
+  .field input,
+  .field select {
+    height: 40px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0 12px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--c-text);
+    background: var(--c-bg);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    width: 100%;
+  }
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    background: #fff;
+  }
+  .field input:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .field input.error { border-color: var(--c-danger); }
+  .field-hint {
+    font-size: 11px;
+    color: var(--c-danger);
+    display: none;
+    margin-top: 2px;
+  }
+  .field-hint.visible { display: block; }
+
+  /* ── Contract type cards ── */
+  .type-grid { display: flex; flex-direction: column; gap: 10px; }
+  .type-card {
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--c-bg);
+    user-select: none;
+  }
+  .type-card:hover {
+    border-color: var(--c-accent);
+    background: var(--c-accent-light);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  .type-card.selected {
+    border-color: var(--c-accent);
+    background: var(--c-accent-light);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+  .type-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .type-info { flex: 1; }
+  .type-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-bottom: 2px;
+  }
+  .type-desc { font-size: 12px; color: var(--c-muted); }
+  .type-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+  .badge-blue   { background: var(--c-accent-light); color: var(--c-accent); }
+  .badge-amber  { background: var(--c-amber-light); color: var(--c-amber); }
+  .badge-green  { background: var(--c-success-light); color: var(--c-success); }
+
+  .type-radio {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--c-border-strong);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .type-card.selected .type-radio {
+    border-color: var(--c-accent);
+    background: var(--c-accent);
+  }
+  .type-card.selected .type-radio::after {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fff;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--c-border);
+    margin: 1.5rem 0;
+  }
+
+  /* ── Navigation ── */
+  .nav-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.75rem;
+    border-top: 1px solid var(--c-border);
+    background: var(--c-bg);
+  }
+  .step-counter {
+    font-size: 12px;
+    color: var(--c-hint);
+    font-family: 'DM Mono', monospace;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.18s;
+    text-decoration: none;
+  }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--c-border-strong);
+    color: var(--c-muted);
+  }
+  .btn-ghost:hover {
+    background: var(--c-bg);
+    color: var(--c-text);
+  }
+  .btn-primary {
+    background: var(--c-accent);
+    color: #fff;
+    border-color: var(--c-accent);
+  }
+  .btn-primary:hover {
+    background: #1D4ED8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+  }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-success {
+    background: var(--c-success);
+    color: #fff;
+    border-color: var(--c-success);
+  }
+  .btn-success:hover {
+    background: #15803D;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+  }
+
+  /* ── Review panel ── */
+  .review-table { width: 100%; border-collapse: collapse; }
+  .review-table tr { border-bottom: 1px solid var(--c-border); }
+  .review-table tr:last-child { border-bottom: none; }
+  .review-table td {
+    padding: 10px 0;
+    font-size: 14px;
+  }
+  .review-table td:first-child {
+    color: var(--c-muted);
+    width: 45%;
+    font-weight: 400;
+  }
+  .review-table td:last-child {
+    font-weight: 500;
+    color: var(--c-text);
+    text-align: right;
+  }
+
+  /* ── Alert box ── */
+  .alert {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .alert.visible { display: flex; }
+  .alert-error {
+    background: var(--c-danger-light);
+    color: var(--c-danger);
+    border: 1px solid rgba(220,38,38,0.15);
+  }
+  .alert-warning {
+    background: var(--c-amber-light);
+    color: var(--c-amber);
+    border: 1px solid rgba(217,119,6,0.15);
+  }
+
+  /* ── Success state ── */
+  .success-state {
+    text-align: center;
+    padding: 3rem 2rem;
+  }
+  .success-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--c-success-light);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1.25rem;
+    font-size: 26px;
+    animation: popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  @keyframes popIn {
+    from { transform: scale(0.5); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .success-state h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .success-state p {
+    font-size: 14px;
+    color: var(--c-muted);
+    margin-bottom: 1.75rem;
+  }
+  .btn-group { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  /* ── Panel transitions ── */
+  .panel {
+    display: none;
+    animation: fadeSlide 0.25s ease;
+  }
+  .panel.active { display: block; }
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<div class="cc-wrapper">
+
+  <div class="cc-header">
+    <h1>Create Contract</h1>
+    <p>Complete each step carefully — all required fields must be filled before submission.</p>
+  </div>
+
+  <div class="progress-track">
+    <div class="progress-fill" id="progressFill" style="width:25%"></div>
+  </div>
+
+  <div class="steps" id="stepsBar">
+    <div class="step">
+      <div class="step-bubble active" id="sb1">1</div>
+      <span class="step-text active" id="st1">Employee</span>
+    </div>
+    <div class="step-line" id="sl1"></div>
+    <div class="step">
+      <div class="step-bubble" id="sb2">2</div>
+      <span class="step-text" id="st2">Type</span>
+    </div>
+    <div class="step-line" id="sl2"></div>
+    <div class="step">
+      <div class="step-bubble" id="sb3">3</div>
+      <span class="step-text" id="st3">Details</span>
+    </div>
+    <div class="step-line" id="sl3"></div>
+    <div class="step">
+      <div class="step-bubble" id="sb4">4</div>
+      <span class="step-text" id="st4">Review</span>
+    </div>
+  </div>
+
+  <form method="POST" id="mainForm" onsubmit="return checkSubmit()">
+    {% csrf_token %}
+    <input type="hidden" name="contract_type" id="hiddenContractType" value="New">
+
+    <div class="cc-card">
+
+      <!-- ── STEP 1: Employee ── -->
+      <div class="panel active" id="panel1">
+        <div class="cc-card-body">
+          <div class="section-label">Employee information</div>
+          <div class="grid-3">
+            <div class="field">
+              <label>PIN <span class="req">*</span></label>
+              <input type="text" name="pin" id="pin" placeholder="e.g. EMP-2024-001" autocomplete="off" onblur="fetchEmployeeDetails()">
+              <span class="field-hint" id="pinErr">PIN is required.</span>
+            </div>
+            <div class="field">
+              <label>Full name <span class="req">*</span></label>
+              <input type="text" name="name" id="empName" placeholder="First and last name">
+              <span class="field-hint" id="nameErr">Name is required.</span>
+            </div>
+            <div class="field">
+              <label>Current designation</label>
+              <input type="text" name="designation" id="designation" placeholder="e.g. Senior Analyst">
+            </div>
+          </div>
+          
+          <div id="newFields" style="display:none;">
+            <div class="section-label" style="margin-top:20px;">New Employee Details</div>
+            <div class="grid-3">
+              <div class="field">
+                <label>Phone Number</label>
+                <input type="text" name="phone" id="phone" placeholder="Phone Number">
+              </div>
+              <div class="field">
+                <label>Email Address</label>
+                <input type="email" name="email" id="email" placeholder="Email (optional)">
+              </div>
+              <div class="field">
+                <label>TIN Number</label>
+                <input type="text" name="tin" id="tin" placeholder="TIN Number">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="nav-row">
+          <span class="step-counter">Step 1 / 4</span>
+          <button type="button" class="btn btn-primary" onclick="goTo(2)">
+            Continue <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── STEP 2: Contract Type ── -->
+      <div class="panel" id="panel2">
+        <div class="cc-card-body">
+          <div class="section-label">Choose contract type</div>
+          <div class="type-grid">
+
+          <div class="type-card selected" id="tc-New" onclick="selectType('New')">
+              <div class="type-radio" id="tr-New"><div></div></div>
+              <div class="type-icon" style="background:#EFF6FF">📄</div>
+              <div class="type-info">
+                <div class="type-name">New Contract</div>
+                <div class="type-desc">Creates a brand new contract.</div>
+              </div>
+              <span class="type-badge badge-blue">New</span>
+            </div>
+            
+            <div class="type-card" id="tc-Extension" onclick="selectType('Extension')">
+              <div class="type-radio" id="tr-Extension"><div></div></div>
+              <div class="type-icon" style="background:#EFF6FF">📅</div>
+              <div class="type-info">
+                <div class="type-name">Extension</div>
+                <div class="type-desc">Extends the existing contract period.</div>
+              </div>
+              <span class="type-badge badge-blue">Extension</span>
+            </div>
+            
+            <div class="type-card" id="tc-Revision" onclick="selectType('Revision')">
+              <div class="type-radio" id="tr-Revision"></div>
+              <div class="type-icon" style="background:#FFFBEB">✏️</div>
+              <div class="type-info">
+                <div class="type-name">Revision</div>
+                <div class="type-desc">Amend existing contract terms such as salary, conditions, or duration.</div>
+              </div>
+              <span class="type-badge badge-amber">Revision</span>
+            </div>
+
+            <div class="type-card" id="tc-Renewal" onclick="selectType('Renewal')">
+              <div class="type-radio" id="tr-Renewal"></div>
+              <div class="type-icon" style="background:#F0FDF4">🔄</div>
+              <div class="type-info">
+                <div class="type-name">Renewal</div>
+                <div class="type-desc">Issue a fresh contract term, optionally with a new designation.</div>
+              </div>
+              <span class="type-badge badge-green">Renewal</span>
+            </div>
+
+          </div>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="btn btn-ghost" onclick="goTo(1)">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Back
+          </button>
+          <span class="step-counter">Step 2 / 4</span>
+          <button type="button" class="btn btn-primary" onclick="goTo(3)">
+            Continue <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── STEP 3: Details ── -->
+      <div class="panel" id="panel3">
+        <div class="cc-card-body">
+          <div class="section-label">Contract details</div>
+          <div class="grid-2">
+            <div class="field">
+              <label>Start date <span class="req">*</span></label>
+              <input type="date" name="start_date" id="startDate" oninput="validateDates()" required>
+              <span class="field-hint" id="startDateErr">Start date is required.</span>
+            </div>
+            <div class="field">
+              <label>End date <span class="req">*</span></label>
+              <input type="date" name="end_date" id="endDate" oninput="validateDates()" required>
+              <span class="field-hint" id="endDateErr">End date is required.</span>
+            </div>
+          </div>
+          
+          <div class="alert alert-warning" id="dateWarn">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 6v3M8 11h.01M2.5 13.5h11L8 2.5 2.5 13.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            End date must be after start date.
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>Salary (BDT) <span class="req">*</span></label>
+              <input type="number" name="salary" id="salary" placeholder="0" min="0" required>
+              <span class="field-hint" id="salaryErr">Salary is required.</span>
+            </div>
+            <div class="field" id="newDesigWrap">
+              <label>New designation <span id="newDesigBadge" style="font-size:11px;color:var(--c-hint);">(only for Renewal)</span></label>
+              <input type="text" name="new_designation" id="newDesignation" placeholder="New role title" disabled>
+            </div>
+          </div>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="btn btn-ghost" onclick="goTo(2)">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Back
+          </button>
+          <span class="step-counter">Step 3 / 4</span>
+          <button type="button" class="btn btn-primary" onclick="goTo(4)">
+            Review <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── STEP 4: Review ── -->
+      <div class="panel" id="panel4">
+        <div class="cc-card-body" id="reviewBody">
+          <div class="section-label">Review &amp; confirm</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.5rem">
+            <div style="background:var(--c-bg);border-radius:var(--radius-sm);padding:14px 16px;border:1px solid var(--c-border)">
+              <div style="font-size:11px;color:var(--c-hint);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Employee</div>
+              <div style="font-size:15px;font-weight:600;color:var(--c-text)" id="rv-name">—</div>
+              <div style="font-size:13px;color:var(--c-muted);margin-top:2px" id="rv-pin-desig">—</div>
+            </div>
+            <div style="background:var(--c-bg);border-radius:var(--radius-sm);padding:14px 16px;border:1px solid var(--c-border)">
+              <div style="font-size:11px;color:var(--c-hint);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Contract type</div>
+              <div id="rv-type-badge" style="margin-bottom:4px"></div>
+              <div style="font-size:12px;color:var(--c-muted)" id="rv-type-desc">—</div>
+            </div>
+          </div>
+
+          <table class="review-table" id="reviewTable">
+          </table>
+
+          <div style="margin-top:1.25rem;padding:12px 14px;background:var(--c-bg);border-radius:var(--radius-sm);border:1px solid var(--c-border);font-size:13px;color:var(--c-muted);line-height:1.5">
+            Please verify all details above. Once submitted, a PDF contract will be generated and available for download.
+          </div>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="btn btn-ghost" onclick="goTo(3)">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><path d="M13 8H3M7 4L3 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Edit
+          </button>
+          <span class="step-counter">Step 4 / 4</span>
+          <button type="submit" class="btn btn-success" id="submitBtn">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:middle"><path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Submit contract
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </form>
+
+</div>
+
+<!-- ── SUCCESS POPUP ── -->
+{% if created_contract %}
+<div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)">
+  <div style="background:#fff;padding:2.5rem 2rem;border-radius:16px;min-width:360px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);animation:popIn .35s cubic-bezier(.175,.885,.32,1.275)">
+    <div style="width:60px;height:60px;border-radius:50%;background:#F0FDF4;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px">✓</div>
+    <h3 style="font-family:'DM Sans',sans-serif;font-weight:600;font-size:1.2rem;margin-bottom:6px">Contract created</h3>
+    <p style="font-size:14px;color:#6B6A66;margin-bottom:1.75rem">Successfully created for <strong>{{ created_contract.name }}</strong></p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <a href="{% url 'contracts:generate_pdf' created_contract.id %}"
+         style="display:block;padding:10px 20px;background:#2563EB;color:#fff;border-radius:8px;text-decoration:none;font-family:'DM Sans',sans-serif;font-weight:500;font-size:14px">
+        Download PDF
+      </a>
+      <a href="{% url 'contracts:send_contract_email' created_contract.id %}"
+         style="display:block;padding:10px 20px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-family:'DM Sans',sans-serif;font-weight:500;font-size:14px">
+        📧 Send Email
+      </a>
+      <button onclick="window.location.href=window.location.pathname"
+              style="padding:10px 20px;background:transparent;border:1px solid rgba(0,0,0,0.12);border-radius:8px;color:#6B6A66;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer">
+        Create another
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  let currentStep = 1;
+  let selectedType = 'New';
+
+  const hints = {
+    New:       'Creates a brand new contract.',
+    Extension: 'Extends the existing contract period.',
+    Revision:  'Revises terms of the current contract.',
+    Renewal:   'Issues a new contract with updated terms.'
+  };
+
+  function selectType(t) {
+    selectedType = t;
+    document.getElementById('hiddenContractType').value = t;
+    ['New','Extension','Revision','Renewal'].forEach(x => {
+      document.getElementById('tc-'+x).classList.toggle('selected', x===t);
+      const rb = document.getElementById('tr-'+x);
+      rb.innerHTML = x===t ? '<div></div>' : '';
+    });
+    const nd = document.getElementById('newDesignation');
+    const badge = document.getElementById('newDesigBadge');
+    if (t === 'Renewal') {
+      nd.disabled = false;
+      nd.placeholder = 'Enter new role title';
+      badge.textContent = '(required for Renewal)';
+      badge.style.color = 'var(--c-accent)';
+    } else {
+      nd.disabled = true;
+      nd.value = '';
+      nd.placeholder = 'New role title';
+      badge.textContent = '(only for Renewal)';
+      badge.style.color = 'var(--c-hint)';
+    }
+  }
+
+  function goTo(step) {
+    if (step > currentStep) {
+      if (!validate(currentStep)) return;
+    }
+    document.getElementById('panel'+currentStep).classList.remove('active');
+    currentStep = step;
+    document.getElementById('panel'+currentStep).classList.add('active');
+    updateSteps();
+    if (step === 4) buildReview();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
+  function validate(step) {
+    if (step === 1) {
+      let ok = true;
+      const pin = document.getElementById('pin');
+      const name = document.getElementById('empName');
+      const pinErr = document.getElementById('pinErr');
+      const nameErr = document.getElementById('nameErr');
+      if (!pin.value.trim()) {
+        pin.classList.add('error');
+        pinErr.classList.add('visible');
+        ok = false;
+      } else {
+        pin.classList.remove('error');
+        pinErr.classList.remove('visible');
+      }
+      if (!name.value.trim()) {
+        name.classList.add('error');
+        nameErr.classList.add('visible');
+        ok = false;
+      } else {
+        name.classList.remove('error');
+        nameErr.classList.remove('visible');
+      }
+      return ok;
+    }
+    if (step === 3) {
+      let ok = true;
+      const warn = document.getElementById('dateWarn');
+      if (warn.classList.contains('visible')) { ok = false; }
+      
+      const startDate = document.getElementById('startDate');
+      const endDate = document.getElementById('endDate');
+      const salary = document.getElementById('salary');
+      const startDateErr = document.getElementById('startDateErr');
+      const endDateErr = document.getElementById('endDateErr');
+      const salaryErr = document.getElementById('salaryErr');
+      
+      if (!startDate.value) {
+        startDate.classList.add('error');
+        startDateErr.classList.add('visible');
+        ok = false;
+      } else {
+        startDate.classList.remove('error');
+        startDateErr.classList.remove('visible');
+      }
+      
+      if (!endDate.value) {
+        endDate.classList.add('error');
+        endDateErr.classList.add('visible');
+        ok = false;
+      } else {
+        endDate.classList.remove('error');
+        endDateErr.classList.remove('visible');
+      }
+      
+      if (!salary.value || salary.value <= 0) {
+        salary.classList.add('error');
+        salaryErr.classList.add('visible');
+        ok = false;
+      } else {
+        salary.classList.remove('error');
+        salaryErr.classList.remove('visible');
+      }
+      
+      return ok;
+    }
+    return true;
+  }
+
+  function validateDates() {
+    const s = document.getElementById('startDate').value;
+    const e = document.getElementById('endDate').value;
+    const warn = document.getElementById('dateWarn');
+    if (s && e && e <= s) warn.classList.add('visible');
+    else warn.classList.remove('visible');
+  }
+
+  function updateSteps() {
+    const pct = [25, 50, 75, 100];
+    document.getElementById('progressFill').style.width = pct[currentStep-1] + '%';
+
+    for (let i = 1; i <= 4; i++) {
+      const b = document.getElementById('sb'+i);
+      const t = document.getElementById('st'+i);
+      b.classList.remove('active','done');
+      t.classList.remove('active','done');
+      if (i < currentStep) {
+        b.classList.add('done'); b.innerHTML = '✓'; t.classList.add('done');
+      } else if (i === currentStep) {
+        b.classList.add('active'); b.textContent = i; t.classList.add('active');
+      } else {
+        b.textContent = i;
+      }
+    }
+    for (let i = 1; i <= 3; i++) {
+      document.getElementById('sl'+i).classList.toggle('done', i < currentStep);
+    }
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    const [y,m,day] = d.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return day + ' ' + months[parseInt(m,10)-1] + ' ' + y;
+  }
+
+  function fmtMoney(v) {
+    if (!v) return '—';
+    return 'BDT ' + Number(v).toLocaleString('en-BD');
+  }
+
+   function buildReview() {
+    const pin   = document.getElementById('pin').value   || '—';
+    const name  = document.getElementById('empName').value || '—';
+    const desig = document.getElementById('designation').value || '—';
+    const sd    = document.getElementById('startDate').value;
+    const ed    = document.getElementById('endDate').value;
+    const sal   = document.getElementById('salary').value;
+    const nd    = document.getElementById('newDesignation').value || '—';
+
+    document.getElementById('rv-name').textContent = name;
+    document.getElementById('rv-pin-desig').innerHTML = 'PIN: ' + pin + (desig !== '—' ? ' · ' + desig : '');
+
+    const badgeClass = {New:'badge-blue', Extension:'badge-blue',Revision:'badge-amber',Renewal:'badge-green'}[selectedType];
+    document.getElementById('rv-type-badge').innerHTML = `<span class="type-badge ${badgeClass}">${selectedType}</span>`;
+    document.getElementById('rv-type-desc').textContent = typeDescs[selectedType];
+
+    const rows = [
+      ['Start date', fmtDate(sd)],
+      ['End date', fmtDate(ed)],
+      ['Salary', fmtMoney(sal)],
+    ];
+    if (selectedType === 'Renewal') rows.push(['New designation', nd]);
+
+    document.getElementById('reviewTable').innerHTML = rows.map(([l,v]) =>
+      `<tr><td>${l}</td><td>${v}</td></tr>`
+    ).join('');
+  }
+
+  function fetchEmployeeDetails() {
+    const pin = document.getElementById('pin').value;
+    if (!pin) return;
+    
+    fetch(`{% url 'employees:employee_api' 999 %}`.replace('999', pin))
+      .then(response => response.json())
+      .then(data => {
+        if (data.exists) {
+          // Existing employee - auto-fill details
+          document.getElementById('empName').value = data.name;
+          document.getElementById('designation').value = data.designation;
+          document.getElementById('salary').value = data.salary;
+          document.getElementById('phone').value = data.phone || '';
+          document.getElementById('email').value = data.email || '';
+          document.getElementById('tin').value = data.tin || '';
+          document.getElementById('newFields').style.display = 'none';
+        } else {
+          // New PIN - show fields for new employee
+          document.getElementById('empName').value = '';
+          document.getElementById('designation').value = '';
+          document.getElementById('salary').value = '';
+          document.getElementById('phone').value = '';
+          document.getElementById('email').value = '';
+          document.getElementById('tin').value = '';
+          document.getElementById('newFields').style.display = 'block';
+        }
+      })
+      .catch(error => console.error('Error fetching employee:', error));
+  }
+
+   selectType(selectedType);
+  
+   // Prevent Enter key from submitting form in steps 1-3
+   document.addEventListener('keydown', function(e) {
+     if (e.key === 'Enter' && currentStep < 4) {
+       e.preventDefault();
+       if (currentStep === 1) {
+         goTo(2);
+       } else if (currentStep === 2) {
+         goTo(3);
+       } else if (currentStep === 3) {
+         goTo(4);
+       }
+     }
+   });
+</script>
+
+{% endblock %}

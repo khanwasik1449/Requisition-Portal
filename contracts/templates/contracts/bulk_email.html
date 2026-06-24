@@ -1,0 +1,431 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --c-bg: #F7F6F3;
+    --c-surface: #FFFFFF;
+    --c-border: rgba(0,0,0,0.08);
+    --c-border-strong: rgba(0,0,0,0.15);
+    --c-text: #1A1917;
+    --c-muted: #6B6A66;
+    --c-hint: #A8A79F;
+    --c-accent: #2563EB;
+    --c-accent-bg: #EFF4FF;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  .bulk-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  .bulk-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .bulk-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .bulk-header p {
+    font-size: 13px;
+    color: var(--c-muted);
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    background: var(--c-surface);
+    color: var(--c-text);
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    text-decoration: none;
+  }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 900px) {
+    .content-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--c-border);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .card-body {
+    padding: 1.25rem;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--c-bg);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--c-hint);
+    border-bottom: 1px solid var(--c-border-strong);
+  }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  tbody tr:hover {
+    background: #FAFAF8;
+  }
+
+  tbody tr.selected {
+    background: var(--c-accent-bg);
+  }
+
+  .checkbox-cell {
+    width: 40px;
+    text-align: center;
+  }
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .badge-new {
+    background: #EFF6FF;
+    color: #1D4ED8;
+  }
+
+  .badge-renewal {
+    background: #F0FDF4;
+    color: #166534;
+  }
+
+  .badge-extension {
+    background: #FEF3C7;
+    color: #92400E;
+  }
+
+  .badge-revision {
+    background: #FCE7F3;
+    color: #9D174D;
+  }
+
+  .email-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-muted);
+    margin-bottom: 6px;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .form-group textarea {
+    min-height: 150px;
+    resize: vertical;
+  }
+
+  .form-hint {
+    font-size: 11px;
+    color: var(--c-hint);
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .btn-send {
+    width: 100%;
+    padding: 12px;
+    background: #2563EB;
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-send:disabled {
+    background: var(--c-hint);
+    cursor: not-allowed;
+  }
+
+  .selected-count {
+    font-size: 13px;
+    color: var(--c-accent);
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+  }
+</style>
+
+<div class="bulk-wrap">
+
+  <div class="bulk-header">
+    <div>
+      <h1>Bulk Email Contracts</h1>
+      <p>Select contracts and send them via email</p>
+    </div>
+
+    <a href="{% url 'contracts:contract_list' %}" class="back-btn">
+      ← Back to List
+    </a>
+  </div>
+
+  <form method="POST" class="content-grid">
+    {% csrf_token %}
+
+    <!-- LEFT -->
+    <div class="card">
+
+      <div class="card-header">
+        <span>Select Contracts</span>
+        <span class="selected-count" id="selectedCount">0 selected</span>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+
+          <thead>
+            <tr>
+              <th class="checkbox-cell">
+                <input type="checkbox" id="selectAll">
+              </th>
+              <th>PIN</th>
+              <th>Name</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {% for contract in contracts %}
+
+            <tr id="row-{{ contract.id|default:'0' }}">
+
+              <td class="checkbox-cell">
+
+                <input
+                  type="checkbox"
+                  name="contract_ids"
+                  value="{{ contract.id }}"
+                  id="check-{{ contract.id|default:'0' }}"
+                >
+
+              </td>
+
+              <td style="font-family:'DM Mono',monospace">
+                {{ contract.pin }}
+              </td>
+
+              <td>
+                {{ contract.name }}
+              </td>
+
+              <td>
+                <span class="badge badge-{{ contract.contract_type|lower }}">
+                  {{ contract.contract_type }}
+                </span>
+              </td>
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+              <td colspan="4" style="text-align:center;padding:2rem;">
+                No contracts found
+              </td>
+            </tr>
+
+            {% endfor %}
+
+          </tbody>
+
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="card">
+
+      <div class="card-header">
+        <span>Email Template</span>
+      </div>
+
+      <div class="card-body email-form">
+
+        <div class="form-group">
+          <label for="subject">Subject</label>
+
+          <input
+            type="text"
+            name="subject"
+            id="subject"
+            value="Contract Document for {name}"
+            required
+          >
+
+          <div class="form-hint">
+            Use {name}, {pin}
+          </div>
+        </div>
+
+        <div class="form-group">
+
+          <label for="body">Body</label>
+
+          <textarea name="body" id="body" required>Dear {name},
+
+Please find your contract document attached.
+
+Best regards,
+HR Department</textarea>
+
+          <div class="form-hint">
+            Use {name}, {pin}, {start_date}, {end_date}
+          </div>
+
+        </div>
+
+        <button type="submit" class="btn-send" id="sendBtn" disabled>
+          Send Emails (<span id="btnCount">0</span>)
+        </button>
+
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<script>
+
+function updateCount() {
+
+  const checked = document.querySelectorAll('input[name="contract_ids"]:checked');
+  const count = checked.length;
+
+  document.getElementById('selectedCount').textContent =
+    count + ' selected';
+
+  document.getElementById('btnCount').textContent =
+    count;
+
+  document.getElementById('sendBtn').disabled =
+    count === 0;
+
+  document.querySelectorAll('tbody tr').forEach(row => {
+    row.classList.remove('selected');
+  });
+
+  checked.forEach(cb => {
+
+    const row = document.getElementById('row-' + cb.value);
+
+    if (row) {
+      row.classList.add('selected');
+    }
+
+  });
+}
+
+document.querySelectorAll('input[name="contract_ids"]').forEach(cb => {
+
+  cb.addEventListener('change', updateCount);
+
+  cb.closest('tr').addEventListener('click', function(e) {
+
+    if (e.target.type !== 'checkbox') {
+      cb.checked = !cb.checked;
+      updateCount();
+    }
+
+  });
+
+});
+
+document.getElementById('selectAll').addEventListener('change', function() {
+
+  const checked = this.checked;
+
+  document.querySelectorAll('input[name="contract_ids"]').forEach(cb => {
+    cb.checked = checked;
+  });
+
+  updateCount();
+
+});
+
+</script>
+
+{% endblock %}

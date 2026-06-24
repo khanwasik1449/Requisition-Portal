@@ -1,0 +1,213 @@
+{% extends base_template|default:'base.html' %}
+{% block page_title %}New Transport Requisition{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-plus-circle" style="color:#d97706;"></i> Transport Requisition Form
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    {% if error %}
+                        <div class="alert alert-danger py-2 small">{{ error }}</div>
+                    {% endif %}
+
+                    <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="bi bi-person me-1"></i> Personal Information</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Email Address <span class="text-danger">*</span></label>
+                            <input type="email" name="email_address" class="form-control" value="{{ request.user.email|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Your Name <span class="text-danger">*</span></label>
+                            <input type="text" name="full_name" class="form-control" value="{{ request.user.get_full_name|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Mobile Number <span class="text-danger">*</span></label>
+                            <input type="text" name="mobile_number" class="form-control" placeholder="e.g. +254 7XX XXX XXX" required>
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">Designation <span class="text-danger">*</span></label>
+                            <input type="text" name="designation" class="form-control" placeholder="e.g. Software Engineer" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">PIN <span class="text-danger">*</span></label>
+                            <input type="text" name="pin" class="form-control" placeholder="Staff PIN number" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">How many Passengers <span class="text-danger">*</span></label>
+                            <input type="number" name="num_passengers" class="form-control" value="1" min="1" required>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="bi bi-truck me-1"></i> Trip Details</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Vehicle Type <span class="text-danger">*</span></label>
+                            <select name="vehicle_type" class="form-select" id="vehicleType" required onchange="document.getElementById('otherVehicle').style.display=this.value=='other'?'block':'none'">
+                                <option value="sedan">Sedan Car (3 Users)</option>
+                                <option value="noah">Micro Noah (7 Users)</option>
+                                <option value="hiace_11">Micro Hi-Ace (11 Users)</option>
+                                <option value="hiace_14">Micro Hi-Ace (14 Users)</option>
+                                <option value="delivery_van">Delivery Van (Covered Van, Pickup etc.)</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <div id="otherVehicle" style="display:none; margin-top:8px;">
+                                <input type="text" name="vehicle_type_other" class="form-control" placeholder="Please specify vehicle type">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Pick-up Date <span class="text-danger">*</span></label>
+                            <input type="date" name="pick_up_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Pick-up Time <span class="text-danger">*</span></label>
+                            <input type="time" name="pick_up_time" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Pick-up Location <span class="text-danger">*</span></label>
+                            <input type="text" name="pick_up_location" class="form-control" placeholder="e.g. Office, Home address" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Destination <span class="text-danger">*</span></label>
+                            <input type="text" name="destination" class="form-control" placeholder="e.g. Nairobi CBD" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Drop-off Date <span class="text-danger">*</span></label>
+                            <input type="date" name="drop_off_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Drop-off Time <span class="text-danger">*</span></label>
+                            <input type="time" name="drop_off_time" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Drop-off Location <span class="text-danger">*</span></label>
+                            <input type="text" name="drop_off_location" class="form-control" placeholder="e.g. Office, Event venue" required>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="bi bi-journal-text me-1"></i> Additional Information</h6>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Travelling Reason <span class="text-danger">*</span></label>
+                            <textarea name="travelling_reason" class="form-control" rows="2" placeholder="Why are you travelling?" required></textarea>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Project Name & Code <span class="text-danger">*</span></label>
+                            <select name="project_name_code" class="form-select" id="projectCode" required onchange="document.getElementById('otherProject').style.display=this.value=='other'?'block':'none'">
+                                <option value="">-- Select Project --</option>
+                                <option value="BIED-0001 — BIED General - BRAC IED Mother project">BIED-0001 — BIED General - BRAC IED Mother project</option>
+                                <option value="BIED-0002 (M.ed) — Academic (MEd)">BIED-0002 (M.ed) — Academic (MEd)</option>
+                                <option value="BIED-0003 (ECD) — Academic (ECD)">BIED-0003 (ECD) — Academic (ECD)</option>
+                                <option value="BIED-0056 (MHPSS) — Academic (MHPSS)">BIED-0056 (MHPSS) — Academic (MHPSS)</option>
+                                <option value="BIED-0004 — Short Course">BIED-0004 — Short Course</option>
+                                <option value="BIED-0040 — Day Care in BRACU">BIED-0040 — Day Care in BRACU</option>
+                                <option value="BIED-0042 — Microfinance NEET Project">BIED-0042 — Microfinance NEET Project</option>
+                                <option value="BIED-0006 — Play 2.0 LEGO">BIED-0006 — Play 2.0 LEGO</option>
+                                <option value="BIED-0008 — British Academy Research">BIED-0008 — British Academy Research</option>
+                                <option value="BIED-0010 — Bill & Melinda Gates Foundation">BIED-0010 — Bill & Melinda Gates Foundation</option>
+                                <option value="BIED-0049 — VROOM Climate Change & Childcare">BIED-0049 — VROOM Climate Change & Childcare</option>
+                                <option value="BIED-0034 — British Academy: BIGD">BIED-0034 — British Academy: BIGD</option>
+                                <option value="BIED-0053 — PTL Play to Learn Phase 2">BIED-0053 — PTL Play to Learn Phase 2</option>
+                                <option value="BIED-0051 — Homebased Childcare">BIED-0051 — Homebased Childcare</option>
+                                <option value="BIED-0005 — BRAC Youth Platform">BIED-0005 — BRAC Youth Platform</option>
+                                <option value="BIED-0007 — Framework Bangladesh Phase 2">BIED-0007 — Framework Bangladesh Phase 2</option>
+                                <option value="BIED-0021 — SELP">BIED-0021 — SELP</option>
+                                <option value="BIED-0009 — PEDAL Research">BIED-0009 — PEDAL Research</option>
+                                <option value="BIED-0022 — HPL:HCMP">BIED-0022 — HPL:HCMP</option>
+                                <option value="BIED-0025 — WB:SBCC">BIED-0025 — WB:SBCC</option>
+                                <option value="BIED-0026 — Unicef: VACW">BIED-0026 — Unicef: VACW</option>
+                                <option value="BIED-0024 — National University: Mental Health">BIED-0024 — National University: Mental Health</option>
+                                <option value="BIED-0027 — Porticus Advocacy: BEP">BIED-0027 — Porticus Advocacy: BEP</option>
+                                <option value="BIED-0028 — BAINDUM: UDP">BIED-0028 — BAINDUM: UDP</option>
+                                <option value="BIED-0030 — W.B:NEET Plan Bangladesh">BIED-0030 — W.B:NEET Plan Bangladesh</option>
+                                <option value="BIED-0031 — Ayesha Abedin Foundation">BIED-0031 — Ayesha Abedin Foundation</option>
+                                <option value="BIED-0032 — Accelerator Model:BRAC:BEP">BIED-0032 — Accelerator Model:BRAC:BEP</option>
+                                <option value="BIED-0033 — GAC: CN High Commission">BIED-0033 — GAC: CN High Commission</option>
+                                <option value="BIED-0036 — TPD: UNCHR">BIED-0036 — TPD: UNCHR</option>
+                                <option value="BIED-0037 — Unicef: P.P.">BIED-0037 — Unicef: P.P.</option>
+                                <option value="BIED-0038 — UNICEF Adolescent & Youth">BIED-0038 — UNICEF Adolescent & Youth</option>
+                                <option value="BIED-0041 — BRAC Play Lab">BIED-0041 — BRAC Play Lab</option>
+                                <option value="BIED-0039 — Ed-Tech">BIED-0039 — Ed-Tech</option>
+                                <option value="BIED-0048 — ECDAN Childcare Research">BIED-0048 — ECDAN Childcare Research</option>
+                                <option value="BIED-0052 — Higher Education HEAT">BIED-0052 — Higher Education HEAT</option>
+                                <option value="other">Other (not listed)</option>
+                            </select>
+                            <div id="otherProject" style="display:none; margin-top:8px;">
+                                <input type="text" name="project_name_code_other" class="form-control" placeholder="Type project name & code">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Budget Code (with Project code) <span class="text-danger">*</span></label>
+                            <select name="budget_code" class="form-select" id="budgetCode" required onchange="document.getElementById('otherBudget').style.display=this.value=='other'?'block':'none'">
+                                <option value="">-- Select Budget Code --</option>
+                                <option value="0001-403030101">0001-403030101</option>
+                                <option value="0002-401030101">0002-401030101</option>
+                                <option value="0003-401030101">0003-401030101</option>
+                                <option value="0004-401030101">0004-401030101</option>
+                                <option value="0006-581111-01">0006-581111-01</option>
+                                <option value="0008-581111-01">0008-581111-01</option>
+                                <option value="0010-581111-01">0010-581111-01</option>
+                                <option value="0023-581111-04">0023-581111-04</option>
+                                <option value="0025-581111-01">0025-581111-01</option>
+                                <option value="0028-581111-01">0028-581111-01</option>
+                                <option value="0042-581111-01">0042-581111-01</option>
+                                <option value="0035-581111-01">0035-581111-01</option>
+                                <option value="0034-581111-01">0034-581111-01</option>
+                                <option value="0036-581111-01">0036-581111-01</option>
+                                <option value="0037-581111-01">0037-581111-01</option>
+                                <option value="0038-581111-01">0038-581111-01</option>
+                                <option value="0038-581111-04">0038-581111-04</option>
+                                <option value="0038-581313-05">0038-581313-05</option>
+                                <option value="0039-581111-02">0039-581111-02</option>
+                                <option value="0010-581111-05">0010-581111-05</option>
+                                <option value="581111-01">581111-01</option>
+                                <option value="0049-581111-01">0049-581111-01</option>
+                                <option value="other">Other Manual</option>
+                            </select>
+                            <div id="otherBudget" style="display:none; margin-top:8px;">
+                                <input type="text" name="budget_code_other" class="form-control" placeholder="Type budget code">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" name="supervisor_acknowledged" id="supervisor_acknowledged">
+                                <label class="form-check-label fw-semibold" for="supervisor_acknowledged">
+                                    Is your Supervisor Acknowledged? <span class="text-danger">*</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Any Comments / Remarks</label>
+                        <textarea name="comments_remarks" class="form-control" rows="2" placeholder="Additional notes..."></textarea>
+                    </div>
+
+                    <hr>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send me-1"></i> Submit Request
+                        </button>
+                        <a href="{% if user.is_authenticated %}{% url 'transport_requisition:list' %}{% else %}{% url 'home' %}{% endif %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

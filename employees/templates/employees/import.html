@@ -1,0 +1,43 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<style>
+  :root { --c-success: #16A34A; --c-bg: #F7F6F3; --c-surface: #FFFFFF; --c-border: rgba(0,0,0,0.08); --c-accent: #2563EB; --c-muted: #6B6A66; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: var(--c-bg); }
+  .wrapper { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+  .card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px; padding: 1.5rem; }
+  h1 { margin-bottom: 1rem; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--c-muted); }
+  .field input, .field select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+  .btn { background: var(--c-success); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; }
+  .helper { font-size: 12px; color: var(--c-muted); margin-top: 4px; }
+  .alert { padding: 12px; border-radius: 8px; margin-bottom: 1rem; }
+  .alert-success { background: #d4edda; color: #155724; }
+</style>
+
+<div class="wrapper">
+  <h1>Import Employees</h1>
+  
+  {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="card">
+      <div class="field">
+        <label>Employee CSV (PIN, Name, Designation, Gender, TIN)</label>
+        <input type="file" name="file" accept=".csv" required>
+        <div class="helper">Upload CSV with employee details</div>
+      </div>
+      <button type="submit" class="btn">Import</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

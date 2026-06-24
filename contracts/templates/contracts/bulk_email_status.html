@@ -1,0 +1,227 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<style>
+  .s-container {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .s-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px;
+    border: 1px solid #E2E8F0;
+  }
+  .s-card h3 {
+    margin: 0 0 4px;
+    font-size: 20px;
+  }
+  .s-card .sub {
+    color: #64748B;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .s-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .s-stat {
+    flex: 1;
+    text-align: center;
+    padding: 16px 8px;
+    border-radius: 12px;
+    background: #F8FAFC;
+  }
+  .s-stat .num {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .s-stat .lbl {
+    font-size: 12px;
+    color: #64748B;
+    margin-top: 2px;
+  }
+  .s-stat.sent .num { color: #16A34A; }
+  .s-stat.fail .num { color: #EF4444; }
+  .s-stat.pend .num { color: #F59E0B; }
+
+  .s-bar {
+    height: 6px;
+    background: #E2E8F0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .s-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2563EB, #3B82F6);
+    border-radius: 3px;
+    transition: width .8s ease;
+  }
+
+  .s-info {
+    font-size: 13px;
+    color: #64748B;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .s-list {
+    margin-top: 16px;
+    border-top: 1px solid #E2E8F0;
+    padding-top: 12px;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .s-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #F1F5F9;
+  }
+  .s-item .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 20px;
+  }
+  .badge.sent { background: #F0FDF4; color: #16A34A; }
+  .badge.failed { background: #FEF2F2; color: #EF4444; }
+  .badge.pending { background: #FEF3C7; color: #F59E0B; }
+
+  .s-empty {
+    text-align: center;
+    padding: 40px 0;
+    color: #94A3B8;
+  }
+  .s-empty .big { font-size: 40px; margin-bottom: 8px; }
+  .s-actions { margin-top: 20px; text-align: center; }
+  .btn {
+    display: inline-block;
+    padding: 10px 22px;
+    background: #2563EB;
+    color: #fff;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .btn:hover { background: #1D4ED8; }
+  .btn-outline {
+    background: transparent;
+    color: #2563EB;
+    border: 1px solid #E2E8F0;
+    margin-left: 8px;
+  }
+  .btn-outline:hover { background: #F8FAFC; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #E2E8F0;
+    border-top-color: #2563EB;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .fail-reason {
+    font-size: 11px;
+    color: #EF4444;
+    margin-left: 8px;
+  }
+</style>
+
+<div class="s-container">
+  <div class="s-card">
+
+    {% if total == 0 %}
+      <div class="s-empty">
+        <div class="big">📭</div>
+        <p>No active bulk email job.</p>
+        <p style="font-size:13px;">Submit contracts from the list page to start.</p>
+        <div class="s-actions">
+          <a href="{% url 'contracts:contract_list' %}" class="btn">← Go to Contract List</a>
+        </div>
+      </div>
+    {% else %}
+      <h3>📧 Bulk Email Progress</h3>
+      <p class="sub">{{ total }} contract(s) &middot; {{ elapsed }}s elapsed</p>
+
+      <div class="s-stats">
+        <div class="s-stat sent">
+          <div class="num">{{ sent }}</div>
+          <div class="lbl">Sent</div>
+        </div>
+        <div class="s-stat pend">
+          <div class="num">{{ pending }}</div>
+          <div class="lbl">Pending</div>
+        </div>
+        <div class="s-stat fail">
+          <div class="num">{{ failed }}</div>
+          <div class="lbl">Failed</div>
+        </div>
+      </div>
+
+      <div class="s-bar">
+        <div class="s-bar-fill" style="width:{% widthratio sent|add:failed total 100 %}%"></div>
+      </div>
+
+      <div class="s-info">
+        {{ sent|add:failed }} of {{ total }} completed
+        {% if not finished %}
+          &middot; <span class="spinner"></span> Processing...
+        {% endif %}
+      </div>
+
+      {% if results %}
+      <div class="s-list">
+        {% for r in results %}
+          <div class="s-item">
+            <span>
+              {% if r.name %}{{ r.name }}{% else %}Contract #{{ r.contract_id }}{% endif %}
+              {% if r.email %}<br><small style="color:#94A3B8;">{{ r.email }}</small>{% endif %}
+            </span>
+            <span>
+              <span class="badge {{ r.status }}">
+                {% if r.status == 'sent' %}✓ Sent{% elif r.status == 'failed' %}✗ Failed{% else %}⋯ Pending{% endif %}
+              </span>
+              {% if r.reason %}
+                <span class="fail-reason">({{ r.reason }})</span>
+              {% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="s-actions">
+        {% if not finished %}
+          <a href="." class="btn">🔄 Refresh</a>
+        {% else %}
+          <div style="padding:10px;background:#F0FDF4;border-radius:10px;color:#16A34A;font-size:14px;font-weight:500;margin-bottom:16px;">
+            ✅ All done — {{ sent }} sent, {{ failed }} failed in {{ elapsed }}s
+          </div>
+          <a href="{% url 'contracts:contract_list' %}" class="btn">← Back to Contracts</a>
+        {% endif %}
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% if not finished and total > 0 %}
+<script>
+  setTimeout(function(){ location.reload(); }, 4000);
+</script>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block page_title %}Internal Requisition {{ r.request_number }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-info-circle me-2" style="color:#16a34a;"></i>Requisition Details</span>
+                <span>
+                    {% if r.status == 'pending_first' %}
+                        <span class="badge bg-warning"><i class="bi bi-hourglass-split me-1"></i>Pending First Approval</span>
+                    {% elif r.status == 'pending_second' %}
+                        <span class="badge bg-info"><i class="bi bi-hourglass-split me-1"></i>Pending Second Approval</span>
+                    {% elif r.status == 'approved' %}
+                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                    {% elif r.status == 'rejected' %}
+                        <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rejected</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3" style="color:#16a34a;"><i class="bi bi-person me-1"></i> Personal Information</h6>
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small mb-1">Email Address</label>
+                        <div class="fw-semibold">{{ r.email_address }}</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small mb-1">Full Name</label>
+                        <div class="fw-semibold">{{ r.full_name }}</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small mb-1">Mobile Number</label>
+                        <div class="fw-semibold">{{ r.mobile_number }}</div>
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small mb-1">Designation</label>
+                        <div class="fw-semibold">{{ r.designation }}</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small mb-1">PIN</label>
+                        <div class="fw-semibold">{{ r.pin }}</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label text-muted small mb-1">Department</label>
+                        <div><span class="badge bg-light text-dark border">{{ r.department }}</span></div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-3" style="color:#16a34a;"><i class="bi bi-box-seam me-1"></i> Equipment Items</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Equipment Name</th>
+                                <th>Quantity</th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in r.equipment_items.all %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td class="fw-semibold">{{ item.name }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>{{ item.purpose }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-muted text-center">No equipment items listed.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if r.first_approver %}
+                <div class="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span><strong>1st Approval:</strong> {{ r.first_approver.username }} on {{ r.first_approved_at|date:"M d, Y H:i" }}</span>
+                </div>
+                {% endif %}
+
+                {% if r.second_approver %}
+                <div class="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span><strong>2nd Approval:</strong> {{ r.second_approver.username }} on {{ r.second_approved_at|date:"M d, Y H:i" }}</span>
+                </div>
+                {% endif %}
+
+                {% if r.rejection_reason %}
+                <div class="mb-3 p-3 bg-danger bg-opacity-10 rounded d-flex align-items-start gap-2">
+                    <i class="bi bi-x-circle-fill text-danger mt-1"></i>
+                    <div>
+                        <strong class="text-danger">Rejected</strong>
+                        <p class="mb-0 text-danger">{{ r.rejection_reason }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <hr>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'internal_requisition:list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </a>
+                    {% if r.status == 'pending_first' or r.status == 'pending_second' %}
+                        {% if user.is_approver or user.is_admin %}
+                            <a href="{% url 'internal_requisition:approve' r.id %}" class="btn btn-success">
+                                <i class="bi bi-check-lg me-1"></i> Approve
+                            </a>
+                            <a href="{% url 'internal_requisition:reject' r.id %}" class="btn btn-danger">
+                                <i class="bi bi-x-lg me-1"></i> Reject
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

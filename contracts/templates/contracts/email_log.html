@@ -1,0 +1,108 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<style>
+  .log-wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .log-wrap h2 {
+    margin-bottom: 16px;
+  }
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .log-table th {
+    background: #F8FAFC;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid #E2E8F0;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+  }
+  .log-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #F1F5F9;
+    vertical-align: top;
+  }
+  .log-table tr:hover td {
+    background: #FAFBFC;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.sent { background: #F0FDF4; color: #16A34A; }
+  .badge.failed { background: #FEF2F2; color: #EF4444; }
+  .empty {
+    text-align: center;
+    padding: 48px;
+    color: #94A3B8;
+  }
+  .error-msg {
+    font-size: 11px;
+    color: #EF4444;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+
+<div class="log-wrap">
+  <h2>📧 Email Log</h2>
+
+  {% if logs %}
+  <div style="overflow-x:auto;">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Recipient</th>
+          <th>Name</th>
+          <th>Subject</th>
+          <th>Status</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="white-space:nowrap;">{{ log.sent_at|date:"d/m/Y H:i" }}</td>
+          <td>{{ log.recipient_email|default:'—' }}</td>
+          <td>{{ log.recipient_name|default:'—' }}</td>
+          <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ log.subject }}</td>
+          <td>
+            <span class="badge {{ log.status }}">
+              {% if log.status == 'sent' %}✓ Sent{% else %}✗ Failed{% endif %}
+            </span>
+          </td>
+          <td>
+            {% if log.error_message %}
+              <span class="error-msg" title="{{ log.error_message }}">{{ log.error_message }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:12px;font-size:12px;color:#94A3B8;">Showing last {{ logs|length }} entries</p>
+  {% else %}
+  <div class="empty">
+    <p style="font-size:40px;margin-bottom:8px;">📭</p>
+    <p>No emails have been sent yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

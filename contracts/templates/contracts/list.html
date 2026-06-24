@@ -1,0 +1,1167 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --c-bg:            #F7F6F3;
+    --c-surface:       #FFFFFF;
+    --c-border:        rgba(0,0,0,0.08);
+    --c-border-strong: rgba(0,0,0,0.14);
+    --c-text:          #1A1917;
+    --c-muted:         #6B6A66;
+    --c-hint:          #A8A79F;
+    --c-accent:        #2563EB;
+    --c-accent-bg:     #EFF4FF;
+    --c-success:       #16A34A;
+    --c-success-bg:    #F0FDF4;
+    --c-danger:        #DC2626;
+    --c-danger-bg:     #FEF2F2;
+    --c-amber:         #D97706;
+    --c-amber-bg:      #FFFBEB;
+    --c-purple:        #7C3AED;
+    --c-purple-bg:     #F5F3FF;
+    --radius:          12px;
+    --radius-sm:       8px;
+    --shadow:          0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:    0 4px 12px rgba(0,0,0,0.08),0 2px 4px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--c-bg);
+    color: var(--c-text);
+  }
+
+  .dash-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* ── Page header ── */
+  .dash-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .dash-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .dash-header p { font-size: 13px; color: var(--c-muted); margin-top: 3px; }
+
+  /* ── Stat cards ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: border-color .2s, box-shadow .2s;
+    user-select: none;
+  }
+  .stat-card:hover { border-color: var(--c-border-strong); box-shadow: var(--shadow); }
+  .stat-card.active { border-color: var(--c-accent); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .stat-label { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 6px; }
+  .stat-value { font-size: 1.6rem; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--c-text); }
+  .stat-sub { font-size: 12px; color: var(--c-muted); margin-top: 2px; }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px; height: 15px;
+    color: var(--c-hint);
+    pointer-events: none;
+  }
+  .search-wrap input {
+    width: 100%;
+    height: 38px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0 12px 0 34px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--c-text);
+    background: var(--c-surface);
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .search-wrap input:focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+  }
+  .filter-select {
+    height: 38px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0 30px 0 12px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--c-text);
+    background: var(--c-surface);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A8A79F' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color .2s;
+  }
+  .filter-select:focus { border-color: var(--c-accent); }
+
+  .sort-btn {
+    height: 38px;
+    padding: 0 14px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--c-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color .2s, color .2s;
+    white-space: nowrap;
+  }
+  .sort-btn:hover { border-color: var(--c-border-strong); color: var(--c-text); }
+  .sort-btn.active { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent-bg); }
+
+  .results-count {
+    font-size: 12px;
+    color: var(--c-hint);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+
+  /* ── Table ── */
+  .table-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .table-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    table-layout: fixed;
+  }
+  thead tr {
+    background: var(--c-bg);
+    border-bottom: 1px solid var(--c-border-strong);
+  }
+  thead th {
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--c-hint);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color .15s;
+  }
+  thead th:hover { color: var(--c-text); }
+  thead th.sorted { color: var(--c-accent); }
+  thead th .sort-arrow { margin-left: 4px; opacity: .5; }
+  thead th.sorted .sort-arrow { opacity: 1; }
+
+  tbody tr {
+    border-bottom: 1px solid var(--c-border);
+    transition: background .12s;
+    cursor: pointer;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #FAFAF8; }
+  tbody tr.highlighted { background: var(--c-accent-bg); }
+
+  td {
+    padding: 12px 14px;
+    color: var(--c-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  td.pin-cell {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--c-muted);
+  }
+  td.name-cell { font-weight: 500; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: .02em;
+  }
+  .badge-extension { background: var(--c-accent-bg);  color: #185FA5; }
+  .badge-revision  { background: var(--c-amber-bg);   color: #854F0B; }
+  .badge-renewal   { background: var(--c-success-bg); color: #3B6D11; }
+  .badge-active    { background: var(--c-success-bg); color: #3B6D11; }
+  .badge-expired   { background: var(--c-danger-bg);  color: #A32D2D; }
+  .badge-expiring  { background: var(--c-amber-bg);   color: #854F0B; }
+
+  /* ── Action buttons ── */
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: all .15s;
+  }
+  .btn-pdf {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+    border-color: rgba(22,163,74,.2);
+  }
+  .btn-pdf:hover {
+    background: var(--c-success);
+    color: #fff;
+    border-color: var(--c-success);
+  }
+  .btn-email {
+    background: #EFF6FF;
+    color: #2563EB;
+    border-color: rgba(37,99,235,.2);
+  }
+  .btn-email:hover {
+    background: #2563EB;
+    color: #fff;
+    border-color: #2563EB;
+  }
+  .btn-delete {
+    background: var(--c-danger-bg);
+    color: var(--c-danger);
+    border-color: rgba(220,38,38,.2);
+  }
+  .btn-delete:hover {
+    background: var(--c-danger);
+    color: #fff;
+    border-color: var(--c-danger);
+  }
+
+  /* ── Delete confirm modal ── */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-box {
+    background: var(--c-surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--c-border);
+    width: 100%;
+    max-width: 400px;
+    margin: 1rem;
+    animation: modalPop .2s cubic-bezier(.175,.885,.32,1.275);
+  }
+  @keyframes modalPop {
+    from { transform: scale(.93); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .modal-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--c-danger-bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .modal-title { font-size: 15px; font-weight: 600; }
+  .modal-body  { padding: 1rem 1.5rem 1.25rem; font-size: 13px; color: var(--c-muted); line-height: 1.6; }
+  .modal-body strong { color: var(--c-text); font-weight: 600; }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: .75rem 1.5rem 1.25rem;
+  }
+  .modal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all .15s;
+  }
+  .modal-btn-cancel {
+    background: transparent;
+    border-color: var(--c-border-strong);
+    color: var(--c-muted);
+  }
+  .modal-btn-cancel:hover { background: var(--c-bg); color: var(--c-text); }
+  .modal-btn-confirm {
+    background: var(--c-danger);
+    color: #fff;
+    border-color: var(--c-danger);
+  }
+  .modal-btn-confirm:hover { background: #B91C1C; }
+  .modal-btn-confirm:disabled { opacity: .6; cursor: not-allowed; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    padding: 3.5rem 1rem;
+    text-align: center;
+  }
+  .empty-icon {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--c-bg);
+    border: 1px solid var(--c-border);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1rem;
+  }
+  .empty-state h3 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .empty-state p  { font-size: 13px; color: var(--c-muted); }
+
+  /* ── Detail drawer (slide-in from right) ── */
+  .drawer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 100;
+  }
+  .drawer-overlay.open { display: block; }
+  .drawer {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 380px;
+    max-width: 100vw;
+    background: var(--c-surface);
+    border-left: 1px solid var(--c-border);
+    z-index: 101;
+    transform: translateX(100%);
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--c-border);
+    position: sticky;
+    top: 0;
+    background: var(--c-surface);
+    z-index: 1;
+  }
+  .drawer-close {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--c-border-strong);
+    background: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c-muted);
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: background .15s;
+  }
+  .drawer-close:hover { background: var(--c-bg); }
+  .drawer-body { padding: 1.5rem; flex: 1; }
+  .drawer-section { margin-bottom: 1.5rem; }
+  .drawer-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--c-hint);
+    margin-bottom: 10px;
+  }
+  .drawer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--c-border);
+    font-size: 13px;
+  }
+  .drawer-row:last-child { border-bottom: none; }
+  .drawer-row-label { color: var(--c-muted); }
+  .drawer-row-val { font-weight: 500; text-align: right; }
+  .drawer-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--c-accent-bg);
+    color: #185FA5;
+    font-weight: 600;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── Pagination ── */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid var(--c-border);
+    background: var(--c-bg);
+    font-size: 12px;
+    color: var(--c-muted);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-btns { display: flex; gap: 4px; }
+  .page-btn {
+    width: 30px; height: 30px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--c-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .page-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+  .page-btn.active { background: var(--c-accent); border-color: var(--c-accent); color: #fff; }
+  .page-btn:disabled { opacity: .35; cursor: default; }
+
+  @media (max-width: 700px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .results-count { margin-left: 0; }
+    .drawer { width: 100vw; }
+    
+    /* Mobile table: horizontal scroll */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 800px; }
+    
+    /* Mobile drawer adjustments */
+    .drawer { padding: 15px; }
+    .drawer-header { flex-direction: column; gap: 10px; }
+    .drawer-body { padding: 15px; }
+    
+    /* Mobile buttons */
+    .action-btn { padding: 8px 12px; font-size: 12px; }
+    .btn-email, .btn-pdf, .btn-delete { 
+      display: block; width: 100%; margin: 5px 0; text-align: center; 
+    }
+  }
+</style>
+
+<div class="dash-wrap">
+
+  <!-- Header -->
+  <div class="dash-header">
+    <div>
+      <h1>Contracts dashboard</h1>
+      <p>Manage and review all employee contracts</p>
+    </div>
+    <a href="{% url 'contracts:create_contract' %}"
+       style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:#2563EB;color:#fff;border-radius:var(--radius-sm);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;text-decoration:none;transition:background .15s;"
+       onmouseover="this.style.background='#1D4ED8'" onmouseout="this.style.background='#2563EB'">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      New contract
+    </a>
+    <a href="{% url 'contracts:bulk_upload_contracts' %}"
+   style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:#7C3AED;color:#fff;border-radius:var(--radius-sm);font-size:13px;font-weight:500;text-decoration:none;">
+  📤 Bulk Upload
+</a>
+    <button type="button" onclick="openBulkEmailModal()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:#059669;color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">
+  📧 Bulk Email
+</button>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="stat-grid" id="statGrid">
+    <div class="stat-card active" data-filter="all" onclick="filterByStat('all',this)">
+      <div class="stat-label">Total</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-sub">All contracts</div>
+    </div>
+    <div class="stat-card" data-filter="New" onclick="filterByStat('New',this)">
+      <div class="stat-label">New Contracts</div>
+      <div class="stat-value" id="statNew">0</div>
+      <div class="stat-sub">Click to filter</div>
+    </div>
+    <div class="stat-card" data-filter="Extension" onclick="filterByStat('Extension',this)">
+      <div class="stat-label">Extensions</div>
+      <div class="stat-value" id="statExt">0</div>
+      <div class="stat-sub">Click to filter</div>
+    </div>
+    <div class="stat-card" data-filter="Revision" onclick="filterByStat('Revision',this)">
+      <div class="stat-label">Revisions</div>
+      <div class="stat-value" id="statRev">0</div>
+      <div class="stat-sub">Click to filter</div>
+    </div>
+    <div class="stat-card" data-filter="Renewal" onclick="filterByStat('Renewal',this)">
+      <div class="stat-label">Renewals</div>
+      <div class="stat-value" id="statRenew">0</div>
+      <div class="stat-sub">Click to filter</div>
+    </div>
+    <div class="stat-card" data-filter="expiring" onclick="filterByStat('expiring',this)">
+      <div class="stat-label">Expiring soon</div>
+      <div class="stat-value" id="statExp">0</div>
+      <div class="stat-sub">Within 30 days</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4.5"/><path d="M10 10l3 3" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" placeholder="Search PIN, name, designation…" oninput="applyFilters()">
+    </div>
+      <select class="filter-select" id="typeFilter" onchange="applyFilters()">
+        <option value="">All types</option>
+        <option value="New">New Contract</option>
+        <option value="Extension">Extension</option>
+        <option value="Revision">Revision</option>
+        <option value="Renewal">Renewal</option>
+      </select>
+    <select class="filter-select" id="statusFilter" onchange="applyFilters()">
+      <option value="">All statuses</option>
+      <option value="Active">Active</option>
+      <option value="Expiring">Expiring soon</option>
+      <option value="Expired">Expired</option>
+    </select>
+    <div style="display:flex;gap:5px;align-items:center">
+      <input type="date" id="startDateFilter" class="filter-select" style="width:130px;padding:0 10px" onchange="applyFilters()" title="Contract start date from">
+      <span style="color:var(--c-muted);font-size:12px">to</span>
+      <input type="date" id="endDateFilter" class="filter-select" style="width:130px;padding:0 10px" onchange="applyFilters()" title="Contract end date to">
+    </div>
+    <button class="sort-btn" id="sortSalary" onclick="toggleSort('salary')">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12V4M4 4L2 6M4 4l2 2M12 4v8M12 12l-2-2M12 12l2-2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Salary
+    </button>
+    <button class="sort-btn" id="sortDate" onclick="toggleSort('date')">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M5 1v4M11 1v4" stroke-linecap="round"/></svg>
+      Date
+    </button>
+    <span class="results-count" id="resultsCount">— results</span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-scroll">
+      <table id="contractTable">
+        <thead>
+          <tr>
+            <th style="width:40px"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+            <th style="width:90px" onclick="toggleSort('pin')">PIN <span class="sort-arrow" id="arrow-pin"></span></th>
+            <th style="width:140px" onclick="toggleSort('name')">Name <span class="sort-arrow" id="arrow-name"></span></th>
+            <th style="width:130px">Designation</th>
+            <th style="width:130px">New designation</th>
+            <th style="width:100px" onclick="toggleSort('salary')">Salary <span class="sort-arrow" id="arrow-salary"></span></th>
+            <th style="width:100px">Type</th>
+            <th style="width:100px" onclick="toggleSort('date')">Start date <span class="sort-arrow" id="arrow-date"></span></th>
+            <th style="width:100px">End date</th>
+            <th style="width:90px">Status</th>
+            <th style="width:120px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="paginationBar">
+      <span id="pageInfo" style="font-family:'DM Mono',monospace"></span>
+      <div class="page-btns" id="pageBtns"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Detail Drawer ── -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="detailDrawer">
+  <div class="drawer-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="drawer-avatar" id="drawerAvatar">–</div>
+      <div>
+        <div style="font-size:15px;font-weight:600" id="drawerName">–</div>
+        <div style="font-size:13px;color:var(--c-muted);margin-top:2px" id="drawerPin">–</div>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-section">
+      <div class="drawer-section-title">Contract details</div>
+      <div id="drawerContent"></div>
+    </div>
+    <div style="margin-top:1.5rem">
+      <a id="drawerPdfBtn" href="#"
+         style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:var(--c-success-bg);color:var(--c-success);border:1px solid rgba(22,163,74,.2);border-radius:var(--radius-sm);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;text-decoration:none;transition:all .15s;"
+         onmouseover="this.style.background='var(--c-success)';this.style.color='#fff'" onmouseout="this.style.background='var(--c-success-bg)';this.style.color='var(--c-success)'">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h10M8 2v8M5 7l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Download PDF
+      </a>
+      <a id="drawerEmailBtn" href="#"
+         style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;background:#EFF6FF;color:#2563EB;border:1px solid rgba(37,99,235,.2);border-radius:var(--radius-sm);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;text-decoration:none;transition:all .15s;margin-top:8px;"
+         onmouseover="this.style.background='#2563EB';this.style.color='#fff'" onmouseout="this.style.background='#EFF6FF';this.style.color='#2563EB'">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 4l-1 8h14l-1-8M2 4l5 4 5-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Send via Email
+      </a>
+      <button id="drawerDeleteBtn" onclick="confirmDeleteFromDrawer()"
+         style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px;background:var(--c-danger-bg);color:var(--c-danger);border:1px solid rgba(220,38,38,.2);border-radius:var(--radius-sm);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;"
+         onmouseover="this.style.background='var(--c-danger)';this.style.color='#fff'" onmouseout="this.style.background='var(--c-danger-bg)';this.style.color='var(--c-danger)'">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M4 4l1 9h6l1-9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Delete contract
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete confirm modal ── -->
+<div class="modal-backdrop" id="deleteModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#DC2626" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M4 4l1 9h6l1-9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="modal-title">Delete contract</div>
+    </div>
+    <div class="modal-body">
+      Are you sure you want to delete the contract for <strong id="modalContractName">—</strong>
+      (<span id="modalContractPin" style="font-family:'DM Mono',monospace;font-size:12px">—</span>)?
+      <br><br>
+      This action <strong>cannot be undone</strong>. The contract record and its PDF will be permanently removed.
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn modal-btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <form id="deleteForm" method="POST" action="" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" class="modal-btn modal-btn-confirm" id="confirmDeleteBtn">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M4 4l1 9h6l1-9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Yes, delete
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bulk Email Modal ── -->
+<div class="modal-backdrop" id="bulkEmailModal">
+  <div class="modal-box" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-icon" style="background:#ECFDF5">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#059669" stroke-width="1.5"><path d="M2 4h12M2 4l-1 8h14l-1-8M2 4l5 4 5-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="modal-title">Bulk Email Contracts</div>
+    </div>
+    <form method="POST" action="{% url 'contracts:bulk_email_contracts' %}" id="bulkEmailForm" onsubmit="showBulkEmailLoading()">
+      {% csrf_token %}
+      <input type="hidden" name="contract_ids" id="bulkEmailContractIds">
+      <div class="modal-body" id="bulkEmailFormBody">
+        <p style="margin-bottom:15px">Send contract PDFs to selected employees. Please configure the email below:</p>
+        
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--c-muted);margin-bottom:4px">Subject</label>
+          <input type="text" name="subject" required value="Contract Document" style="width:100%;padding:8px 12px;border:1px solid var(--c-border-strong);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif">
+        </div>
+        
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--c-muted);margin-bottom:4px">Message Body</label>
+          <textarea name="body" rows="5" required style="width:100%;padding:8px 12px;border:1px solid var(--c-border-strong);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical">Dear Employee,
+
+Please find your contract document attached with this email.
+
+Best regards,
+HR Department</textarea>
+        </div>
+        
+        <div style="font-size:12px;color:var(--c-muted);background:var(--c-bg);padding:8px 12px;border-radius:var(--radius-sm)">
+          Note: PDFs will be generated and sent to each employee's email address on file.
+        </div>
+      </div>
+      <div class="modal-body" id="bulkEmailLoading" style="display:none;text-align:center;padding:30px">
+        <div style="margin-bottom:20px">
+          <svg width="50" height="50" viewBox="0 0 50 50">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="#E5E7EB" stroke-width="3"/>
+            <circle cx="25" cy="25" r="20" fill="none" stroke="#059669" stroke-width="3" 
+                    stroke-dasharray="80 40" stroke-linecap="round" style="animation: spin 1s linear infinite, pulse 1.5s ease-in-out infinite"/>
+          </svg>
+        </div>
+        <div style="font-size:14px;font-weight:500;color:var(--c-text);margin-bottom:5px" id="bulkEmailStatus">Sending emails...</div>
+        <div style="font-size:12px;color:var(--c-muted);margin-bottom:15px" id="bulkEmailTimer">Elapsed time: 0s</div>
+        <div style="margin-top:15px;background:var(--c-bg);border-radius:20px;height:8px;overflow:hidden">
+          <div id="bulkEmailProgress" style="background:linear-gradient(90deg,#059669,#10B981);height:100%;width:0%;transition:width 0.5s ease;border-radius:20px"></div>
+        </div>
+        <div style="font-size:11px;color:var(--c-muted);margin-top:8px" id="bulkEmailCount">Processing...</div>
+      </div>
+      <div class="modal-footer" id="bulkEmailFooter">
+        <button type="button" class="modal-btn modal-btn-cancel" onclick="closeBulkEmailModal()">Cancel</button>
+        <button type="submit" class="modal-btn" id="bulkEmailSubmitBtn" style="background:#059669;color:#fff;border-color:#059669">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 4l-1 8h14l-1-8M2 4l5 4 5-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Send Emails
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0.5; }
+}
+</style>
+
+<script type="application/json" id="contractsData">
+[
+  {% for c in contracts %}
+  {
+    "id":          {{ c.id }},
+    "pin":         "{{ c.pin|escapejs }}",
+    "name":        "{{ c.name|escapejs }}",
+    "designation": "{{ c.designation|escapejs }}",
+    "new_designation": "{{ c.new_designation|escapejs }}",
+    "salary":      {{ c.salary|default:0 }},
+    "contract_type": "{{ c.contract_type|escapejs }}",
+    "start_date":  "{{ c.start_date|date:'Y-m-d' }}",
+    "end_date":    "{{ c.end_date|date:'Y-m-d' }}"
+  }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]
+</script>
+
+<script>
+const RAW_CONTRACTS = JSON.parse(document.getElementById('contractsData').textContent);
+</script>
+
+<script>
+  const PAGE_SIZE = 15;
+  let allRows     = [];
+  let filtered    = [];
+  let currentPage = 1;
+  let sortKey     = null;
+  let sortDir     = 1;
+  let statFilter  = 'all';
+
+  function computeStatus(endDate) {
+    if (!endDate) return 'Active';
+    const end  = new Date(endDate);
+    const now  = new Date();
+    const diff = (end - now) / (1000 * 60 * 60 * 24);
+    if (diff < 0)  return 'Expired';
+    if (diff <= 30) return 'Expiring';
+    return 'Active';
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    const [y,m,day] = d.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return day + ' ' + months[parseInt(m,10)-1] + ' ' + y;
+  }
+
+  function fmtMoney(v) {
+    if (!v && v !== 0) return '—';
+    return '৳\u00A0' + Number(v).toLocaleString('en-BD');
+  }
+
+  function initials(name) {
+    return name.trim().split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || '?';
+  }
+
+  function badgeClass(type) {
+    return { New:'badge-extension', Extension:'badge-extension', Revision:'badge-revision', Renewal:'badge-renewal' }[type] || 'badge-extension';
+  }
+
+  function statusBadge(status) {
+    const cls = { Active:'badge-active', Expired:'badge-expired', Expiring:'badge-expiring' }[status];
+    return `<span class="badge ${cls}">${status}</span>`;
+  }
+
+  function buildStats() {
+    const total   = allRows.length;
+    const newC    = allRows.filter(r=>r.contract_type==='New').length;
+    const ext     = allRows.filter(r=>r.contract_type==='Extension').length;
+    const rev     = allRows.filter(r=>r.contract_type==='Revision').length;
+    const renew   = allRows.filter(r=>r.contract_type==='Renewal').length;
+    const expiring= allRows.filter(r=>r._status==='Expiring').length;
+    document.getElementById('statTotal').textContent  = total;
+    document.getElementById('statNew').textContent   = newC;
+    document.getElementById('statExt').textContent    = ext;
+    document.getElementById('statRev').textContent    = rev;
+    document.getElementById('statRenew').textContent  = renew;
+    document.getElementById('statExp').textContent    = expiring;
+  }
+
+  function applyFilters() {
+    const q      = document.getElementById('searchInput').value.toLowerCase().trim();
+    const type   = document.getElementById('typeFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const startDateFilter = document.getElementById('startDateFilter').value;
+    const endDateFilter = document.getElementById('endDateFilter').value;
+
+    filtered = allRows.filter(r => {
+      const matchQ = !q ||
+        r.pin.toLowerCase().includes(q) ||
+        r.name.toLowerCase().includes(q) ||
+        r.designation.toLowerCase().includes(q) ||
+        r.new_designation.toLowerCase().includes(q);
+      const matchType   = !type   || r.contract_type === type;
+      const matchStatus = !status || r._status === status;
+      const matchStat   =
+        statFilter === 'all'      ? true :
+        statFilter === 'expiring' ? r._status === 'Expiring' :
+        r.contract_type === statFilter;
+      // Date range filter
+      let matchDate = true;
+      if (startDateFilter && r.start_date) {
+        matchDate = matchDate && r.start_date >= startDateFilter;
+      }
+      if (endDateFilter && r.end_date) {
+        matchDate = matchDate && r.end_date <= endDateFilter;
+      }
+      return matchQ && matchType && matchStatus && matchStat && matchDate;
+    });
+
+    if (sortKey) sortRows();
+    currentPage = 1;
+    renderTable();
+  }
+
+  function sortRows() {
+    filtered.sort((a,b) => {
+      let av, bv;
+      if (sortKey === 'salary') { av = a.salary||0; bv = b.salary||0; }
+      else if (sortKey === 'date') { av = a.start_date||''; bv = b.start_date||''; }
+      else if (sortKey === 'pin')  { av = a.pin; bv = b.pin; }
+      else if (sortKey === 'name') { av = a.name; bv = b.name; }
+      else return 0;
+      if (av < bv) return -sortDir;
+      if (av > bv) return  sortDir;
+      return 0;
+    });
+  }
+
+  function toggleSort(key) {
+    if (sortKey === key) sortDir = -sortDir;
+    else { sortKey = key; sortDir = 1; }
+    ['pin','name','salary','date'].forEach(k => {
+      const el = document.getElementById('arrow-'+k);
+      if (el) el.textContent = '';
+      const btn = document.getElementById('sort'+k.charAt(0).toUpperCase()+k.slice(1));
+      if (btn) btn.classList.remove('active');
+    });
+    const arrow = document.getElementById('arrow-'+key);
+    if (arrow) arrow.textContent = sortDir===1 ? ' ↑' : ' ↓';
+    const sortBtnId = 'sort'+key.charAt(0).toUpperCase()+key.slice(1);
+    const sortBtn = document.getElementById(sortBtnId);
+    if (sortBtn) sortBtn.classList.add('active');
+    sortRows();
+    currentPage = 1;
+    renderTable();
+  }
+
+  function filterByStat(val, el) {
+    statFilter = val;
+    document.querySelectorAll('.stat-card').forEach(c=>c.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('startDateFilter').value = '';
+    document.getElementById('endDateFilter').value = '';
+    applyFilters();
+  }
+
+  function renderTable() {
+    const body    = document.getElementById('tableBody');
+    const total   = filtered.length;
+    const pages   = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    currentPage   = Math.min(currentPage, pages);
+    const start   = (currentPage-1)*PAGE_SIZE;
+    const slice   = filtered.slice(start, start+PAGE_SIZE);
+
+    document.getElementById('resultsCount').textContent =
+      total + (total===1 ? ' result' : ' results');
+
+    if (slice.length === 0) {
+      body.innerHTML = `<tr><td colspan="10">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#A8A79F" stroke-width="1.5"><path d="M2 4h12M4 4V2h8v2M4 4v10h8V4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>No contracts found</h3>
+          <p>Try adjusting your search or filters.</p>
+        </div>
+      </td></tr>`;
+    } else {
+       body.innerHTML = slice.map(r => `
+        <tr onclick="openDrawer(${r.id})" title="Click to view details">
+          <td onclick="event.stopPropagation()"><input type="checkbox" class="row-checkbox" value="${r.id}" onchange="updateBulkEmailBtn()"></td>
+          <td class="pin-cell">${r.pin}</td>
+          <td class="name-cell">${r.name}</td>
+          <td style="color:var(--c-muted)">${r.designation||'—'}</td>
+          <td style="color:var(--c-muted)">${r.new_designation||'—'}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:12px">${fmtMoney(r.salary)}</td>
+          <td><span class="badge ${badgeClass(r.contract_type)}">${r.contract_type}</span></td>
+          <td style="color:var(--c-muted)">${fmtDate(r.start_date)}</td>
+          <td style="color:var(--c-muted)">${fmtDate(r.end_date)}</td>
+          <td>${statusBadge(r._status)}</td>
+          <td onclick="event.stopPropagation()" style="white-space:nowrap">
+            <a href="/pdf/${r.id}/" class="action-btn btn-pdf" title="Download PDF">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h10M8 2v8M5 7l3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              PDF
+            </a>
+            <a href="/email/${r.id}/" class="action-btn btn-email" title="Send via Email" style="margin-left:4px">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 4l-1 8h14l-1-8M2 4l5 4 5-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Email
+            </a>
+            <button class="action-btn btn-delete" onclick="confirmDelete(${r.id},'${r.name.replace(/'/g,"\\'")}','${r.pin}')" title="Delete contract" style="margin-left:4px">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M4 4l1 9h6l1-9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Delete
+            </button>
+          </td>
+        </tr>`).join('');
+    }
+
+    renderPagination(pages, total, start);
+  }
+
+  function renderPagination(pages, total, start) {
+    const shown = Math.min(start + PAGE_SIZE, total);
+    document.getElementById('pageInfo').textContent =
+      total === 0 ? '' : `${start+1}–${shown} of ${total}`;
+
+    const btns = document.getElementById('pageBtns');
+    if (pages <= 1) { btns.innerHTML = ''; return; }
+
+    let html = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+    for (let i=1;i<=pages;i++) {
+      if (pages > 7 && i>2 && i<pages-1 && Math.abs(i-currentPage)>1) {
+        if (i===3||i===pages-2) html += `<span style="align-self:center;color:var(--c-hint);padding:0 4px">…</span>`;
+        continue;
+      }
+      html += `<button class="page-btn${i===currentPage?' active':''}" onclick="goPage(${i})">${i}</button>`;
+    }
+    html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>›</button>`;
+    btns.innerHTML = html;
+  }
+
+  function goPage(p) {
+    currentPage = p;
+    renderTable();
+    document.querySelector('.dash-wrap').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  let activeDrawerId = null;
+
+  function openDrawer(id) {
+    activeDrawerId = id;
+    const r = allRows.find(x=>x.id===id);
+    if (!r) return;
+    document.getElementById('drawerAvatar').textContent = initials(r.name);
+    document.getElementById('drawerName').textContent   = r.name;
+    document.getElementById('drawerPin').textContent    = 'PIN: ' + r.pin;
+    document.getElementById('drawerPdfBtn').href        = '/pdf/' + r.id + '/';
+    document.getElementById('drawerEmailBtn').href      = '/email/' + r.id + '/';
+    
+    const rows = [
+      ['Contract type', `<span class="badge ${badgeClass(r.contract_type)}">${r.contract_type}</span>`],
+      ['Status',        statusBadge(r._status)],
+      ['Designation',   r.designation||'—'],
+      ['New designation', r.new_designation||'—'],
+      ['Salary',        fmtMoney(r.salary)],
+      ['Start date',    fmtDate(r.start_date)],
+      ['End date',      fmtDate(r.end_date)],
+    ];
+    
+    document.getElementById('drawerContent').innerHTML = rows.map(([l,v]) =>
+      `<div class="drawer-row">
+        <span class="drawer-row-label">${l}</span>
+        <span class="drawer-row-val">${v}</span>
+      </div>`).join('');
+    
+    document.getElementById('drawerOverlay').classList.add('open');
+    document.getElementById('detailDrawer').classList.add('open');
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawerOverlay').classList.remove('open');
+    document.getElementById('detailDrawer').classList.remove('open');
+  }
+
+  function confirmDelete(id, name, pin) {
+    document.getElementById('modalContractName').textContent = name;
+    document.getElementById('modalContractPin').textContent  = pin;
+    document.getElementById('deleteForm').action = '/contracts/delete/' + id + '/';
+    document.getElementById('deleteModal').classList.add('open');
+  }
+
+  function confirmDeleteFromDrawer() {
+    if (!activeDrawerId) return;
+    const r = allRows.find(x=>x.id===activeDrawerId);
+    if (!r) return;
+    closeDrawer();
+    confirmDelete(r.id, r.name, r.pin);
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('open');
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key==='Escape') { closeDrawer(); closeDeleteModal(); closeBulkEmailModal(); }
+  });
+
+  function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAll.checked);
+    updateBulkEmailBtn();
+  }
+
+  function updateBulkEmailBtn() {
+    const checked = document.querySelectorAll('.row-checkbox:checked').length;
+    const btn = document.querySelector('button[onclick="openBulkEmailModal()"]');
+    if (btn) {
+      btn.textContent = checked > 0 ? ` 📧 Bulk Email (${checked})` : ' 📧 Bulk Email';
+    }
+    document.getElementById('selectAll').checked = 
+      document.querySelectorAll('.row-checkbox:checked').length === document.querySelectorAll('.row-checkbox').length;
+  }
+
+  function getSelectedContractIds() {
+    return Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+  }
+
+  function openBulkEmailModal() {
+    const ids = getSelectedContractIds();
+    if (ids.length === 0) {
+      alert('Please select at least one contract to email.');
+      return;
+    }
+    document.getElementById('bulkEmailContractIds').value = ids.join(',');
+    document.getElementById('bulkEmailModal').classList.add('open');
+  }
+
+  function closeBulkEmailModal() {
+    document.getElementById('bulkEmailModal').classList.remove('open');
+  }
+
+  // Close bulk email modal only when clicking the backdrop
+  document.getElementById('bulkEmailModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      closeBulkEmailModal();
+    }
+  });
+
+  let bulkEmailTimer = null;
+  let bulkEmailSeconds = 0;
+  let bulkEmailTotal = 0;
+
+  function showBulkEmailLoading() {
+    const ids = getSelectedContractIds();
+    bulkEmailTotal = ids.length;
+    bulkEmailSeconds = 0;
+    
+    document.getElementById('bulkEmailFormBody').style.display = 'none';
+    document.getElementById('bulkEmailFooter').style.display = 'none';
+    document.getElementById('bulkEmailLoading').style.display = 'block';
+    document.getElementById('bulkEmailStatus').textContent = 'Sending emails...';
+    document.getElementById('bulkEmailCount').textContent = `Preparing to send ${bulkEmailTotal} email(s)...`;
+    document.getElementById('bulkEmailProgress').style.width = '0%';
+    
+    bulkEmailTimer = setInterval(() => {
+      bulkEmailSeconds++;
+      document.getElementById('bulkEmailTimer').textContent = `Elapsed time: ${bulkEmailSeconds}s`;
+      // Estimate progress (this is approximate since we don't have server feedback)
+      const estimatedProgress = Math.min((bulkEmailSeconds / (bulkEmailTotal * 3)) * 100, 90);
+      document.getElementById('bulkEmailProgress').style.width = estimatedProgress + '%';
+    }, 1000);
+    
+    // Stop timer after form submits (page will reload)
+    setTimeout(() => {
+      if (bulkEmailTimer) {
+        clearInterval(bulkEmailTimer);
+      }
+    }, 300000); // 5 minute timeout
+  }
+
+  // Listen for page load to clear timer if coming back from submission
+  window.addEventListener('pageshow', function() {
+    if (bulkEmailTimer) {
+      clearInterval(bulkEmailTimer);
+    }
+  });
+
+  function init() {
+    allRows = RAW_CONTRACTS.map(r => ({ ...r, _status: computeStatus(r.end_date) }));
+    filtered = [...allRows];
+    buildStats();
+    renderTable();
+  }
+
+  init();
+</script>
+
+{% endblock %}

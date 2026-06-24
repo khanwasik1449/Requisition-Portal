@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block page_title %}
+{% if user.is_ict_admin %}ICT Dashboard{% elif user.is_transport_admin %}Transport Dashboard{% elif user.is_internal_admin %}Internal Dashboard{% else %}Admin Dashboard{% endif %}
+{% endblock %}
+
+{% block page_subtitle %}
+{% if user.is_ict_admin %}ICT Requisition Management{% elif user.is_transport_admin %}Transport Requisition Management{% elif user.is_internal_admin %}Internal Requisition Management{% else %}Enterprise Resource Management{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{% if pending_users > 0 %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between py-3 px-4 mb-4" style="border-radius: 12px; border-left: 5px solid #d97706;">
+    <div>
+        <i class="bi bi-people-fill me-2 fs-5"></i>
+        <strong>{{ pending_users }}</strong> user{% if pending_users > 1 %}s{% endif %} pending approval.
+        <span class="text-muted ms-2">New users are waiting for you to activate their accounts.</span>
+    </div>
+    <a href="{% url 'user_list' %}" class="btn btn-warning btn-sm">
+        <i class="bi bi-arrow-right me-1"></i> Review
+    </a>
+</div>
+{% endif %}
+
+<!-- Requisition Stats -->
+<div class="row g-4 mb-4">
+    {% if user.is_admin or user.is_ict_admin %}
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff;color:#2563eb;">
+                <i class="bi bi-pc-display"></i>
+            </div>
+            <div class="stat-label">ICT Requisitions</div>
+            <div class="stat-value">{{ ict_count }}</div>
+            <div class="stat-footer">
+                <span class="text-warning fw-semibold">{{ ict_pending }} pending</span> approval
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if user.is_admin or user.is_transport_admin %}
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fef3c7;color:#d97706;">
+                <i class="bi bi-truck"></i>
+            </div>
+            <div class="stat-label">Transport Requisitions</div>
+            <div class="stat-value">{{ transport_count }}</div>
+            <div class="stat-footer">
+                <span class="text-warning fw-semibold">{{ transport_pending }} pending</span> approval
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if user.is_admin or user.is_internal_admin %}
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#dcfce7;color:#16a34a;">
+                <i class="bi bi-clipboard-check"></i>
+            </div>
+            <div class="stat-label">Internal Requisitions</div>
+            <div class="stat-value">{{ internal_count }}</div>
+            <div class="stat-footer">
+                <span class="text-warning fw-semibold">{{ internal_pending }} pending</span> approval
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    {% if user.is_admin or user.is_ict_admin %}
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-pc-display" style="color:#2563eb;"></i> ICT Requisition
+            </div>
+            <div class="card-body text-center py-4">
+                <p class="text-muted mb-3">Manage IT equipment and software requests</p>
+                <a href="{% url 'ict_requisition:list' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Manage
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if user.is_admin or user.is_transport_admin %}
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-truck" style="color:#d97706;"></i> Transport Requisition
+            </div>
+            <div class="card-body text-center py-4">
+                <p class="text-muted mb-3">Manage vehicle transport requests</p>
+                <a href="{% url 'transport_requisition:list' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Manage
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if user.is_admin or user.is_internal_admin %}
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-clipboard-check" style="color:#16a34a;"></i> Internal Requisition
+            </div>
+            <div class="card-body text-center py-4">
+                <p class="text-muted mb-3">Manage office supplies and resource requests</p>
+                <a href="{% url 'internal_requisition:list' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Manage
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if user.is_admin %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-people-fill me-2" style="color:#2563eb;"></i> User Management</span>
+                {% if pending_users > 0 %}
+                    <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>{{ pending_users }} pending approval</span>
+                {% endif %}
+            </div>
+            <div class="card-body text-center py-4">
+                <p class="text-muted mb-3">Manage users, approve pending accounts, and assign roles</p>
+                <a href="{% url 'user_list' %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Manage Users
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

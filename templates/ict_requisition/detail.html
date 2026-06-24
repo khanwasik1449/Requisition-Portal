@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block page_title %}ICT Requisition {{ r.request_number }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-info-circle me-2" style="color:#2563eb;"></i>ICT Requisition {{ r.request_number }}</span>
+                <span>
+                    {% if r.status == 'pending_first' %}
+                        <span class="badge bg-warning"><i class="bi bi-hourglass-split me-1"></i>Pending First Approval</span>
+                    {% elif r.status == 'pending_second' %}
+                        <span class="badge bg-info"><i class="bi bi-hourglass-split me-1"></i>Pending Second Approval</span>
+                    {% elif r.status == 'approved' %}
+                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                    {% elif r.status == 'rejected' %}
+                        <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rejected</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+
+                <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="bi bi-person me-1"></i> Personal Information</h6>
+                <div class="row mb-3">
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">Full Name</label>
+                        <div class="fw-semibold">{{ r.full_name }}</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">ICT Email Address</label>
+                        <div class="fw-semibold">{{ r.email_address }}</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">Designation</label>
+                        <div class="fw-semibold">{{ r.designation }}</div>
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">PIN Number</label>
+                        <div class="fw-semibold">{{ r.pin_number }}</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">Contact Number</label>
+                        <div class="fw-semibold">{{ r.contact_number }}</div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="bi bi-calendar me-1"></i> Dates</h6>
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">Requisition Date</label>
+                        <div class="fw-semibold">{{ r.requisition_date|date:"M d, Y" }}</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">Requirement Date</label>
+                        <div class="fw-semibold">{{ r.requirement_date|date:"M d, Y" }}</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label text-muted small mb-1">Return Date</label>
+                        <div class="fw-semibold">{{ r.return_date|date:"M d, Y"|default:"<span class='text-muted'>N/A</span>" }}</div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="bi bi-device-ssd me-1"></i> Equipment Details</h6>
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label text-muted small mb-1">Device / Equipment</label>
+                        <div class="fw-semibold">
+                            <ul class="mb-0 ps-3" style="list-style-type: disc;">
+                                {% for item in r.equipment_list %}
+                                    <li>{{ item }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label text-muted small mb-1">Supervisor</label>
+                        <div class="fw-semibold">{{ r.supervisor.get_full_name|default:r.supervisor.username }}{% if r.supervisor %} — {{ r.supervisor.email }}{% else %}<span class="text-muted">N/A</span>{% endif %}</div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small mb-1">Equipment Specification / Configuration</label>
+                    <div class="bg-light rounded p-3">{{ r.equipment_specification|default:"<span class='text-muted'>None provided</span>" }}</div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-muted small mb-1">Purpose</label>
+                    <div class="bg-light rounded p-3">{{ r.purpose }}</div>
+                </div>
+
+                <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="bi bi-check2-circle me-1"></i> Approval Status</h6>
+                {% if r.first_approver %}
+                <div class="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span><strong>1st Approval:</strong> {{ r.first_approver.username }} on {{ r.first_approved_at|date:"M d, Y H:i" }}</span>
+                </div>
+                {% endif %}
+                {% if r.second_approver %}
+                <div class="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span><strong>2nd Approval:</strong> {{ r.second_approver.username }} on {{ r.second_approved_at|date:"M d, Y H:i" }}</span>
+                </div>
+                {% endif %}
+                {% if not r.first_approver and not r.second_approver and r.status != 'rejected' %}
+                <div class="mb-2 p-3 bg-light rounded text-muted">
+                    <i class="bi bi-clock me-1"></i> Awaiting approval
+                </div>
+                {% endif %}
+                {% if r.rejection_reason %}
+                <div class="mb-3 p-3 bg-danger bg-opacity-10 rounded d-flex align-items-start gap-2">
+                    <i class="bi bi-x-circle-fill text-danger mt-1"></i>
+                    <div>
+                        <strong class="text-danger">Rejected</strong>
+                        <p class="mb-0 text-danger">{{ r.rejection_reason }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <hr>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'ict_requisition:list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </a>
+                    {% if r.status == 'pending_first' or r.status == 'pending_second' %}
+                        {% if user.is_approver or user.is_admin %}
+                            <a href="{% url 'ict_requisition:approve' r.id %}" class="btn btn-success">
+                                <i class="bi bi-check-lg me-1"></i> Approve
+                            </a>
+                            <a href="{% url 'ict_requisition:reject' r.id %}" class="btn btn-danger">
+                                <i class="bi bi-x-lg me-1"></i> Reject
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

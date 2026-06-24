@@ -1,0 +1,249 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --c-bg: #F7F6F3;
+    --c-surface: #FFFFFF;
+    --c-border: rgba(0,0,0,0.08);
+    --c-border-strong: rgba(0,0,0,0.15);
+    --c-text: #1A1917;
+    --c-muted: #6B6A66;
+    --c-accent: #2563EB;
+    --c-success: #16A34A;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--c-bg);
+    color: var(--c-text);
+  }
+
+  @media (max-width: 768px) {
+    .email-wrapper { padding: 1rem !important; }
+    .card-header { padding: 15px !important; }
+    .card-body { padding: 15px !important; }
+    .field input, .field textarea { font-size: 16px; }
+    .btn { width: 100%; justify-content: center; }
+    .back-btn { width: auto; }
+  }
+
+  .email-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #fff;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--c-text);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    transition: all 0.2s;
+  }
+
+  .back-btn:hover {
+    background: var(--c-bg);
+    border-color: var(--c-accent);
+    color: var(--c-accent);
+  }
+
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .card-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+
+  .field {
+    margin-bottom: 20px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .field input,
+  .field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.2s;
+  }
+
+  .field input:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: var(--c-accent);
+  }
+
+  .field textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  .contract-info {
+    background: var(--c-bg);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: var(--c-muted);
+  }
+
+  .contract-info strong {
+    color: var(--c-text);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--c-accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: #1D4ED8;
+  }
+
+  .btn-primary:disabled {
+    background: #93C5FD;
+    cursor: not-allowed;
+  }
+
+  .alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+
+  .alert-success {
+    background: #F0FDF4;
+    color: #16A34A;
+    border: 1px solid #BBF7D0;
+  }
+
+  .alert-error {
+    background: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FECACA;
+  }
+</style>
+
+<div class="email-wrapper">
+
+  <a href="{% url 'contracts:contract_list' %}" class="back-btn">
+    ← Back to Contracts
+  </a>
+
+  <div class="card">
+    <div class="card-header">
+      <h2>📧 Send Contract via Email</h2>
+    </div>
+    <div class="card-body">
+
+      <div class="contract-info">
+        Sending contract for: <strong>{{ contract.name }}</strong> (PIN: {{ contract.pin }})<br>
+        Contract Type: <strong>{{ contract.contract_type }}</strong> | Period: {{ contract.start_date }} to {{ contract.end_date }}
+      </div>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert {% if message.tags == 'success' %}alert-success{% else %}alert-error{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="field">
+          <label>Recipient Email *</label>
+          <input type="email" name="recipient" required
+                 value="{{ employee_email|default:'' }}"
+                 placeholder="recipient@example.com">
+          {% if not employee_email %}
+            <div style="font-size: 12px; color: var(--c-muted); margin-top: 4px;">
+              No email found for this employee. Please enter manually.
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="field">
+          <label>Subject</label>
+          <input type="text" name="subject" required
+                 value="{{ subject }}">
+        </div>
+        
+        <div class="field">
+          <label>Message Body</label>
+          <textarea name="body" required rows="6">{{ body }}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          📤 Send Email
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

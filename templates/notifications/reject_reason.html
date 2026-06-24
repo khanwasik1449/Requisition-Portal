@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reject Requisition {{ r.request_number }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="d-flex align-items-center justify-content-center vh-100 bg-light">
+    <div class="card shadow-sm" style="max-width:500px;width:100%;">
+        <div class="card-body p-4">
+            <h5 class="mb-3">Reject Requisition {{ r.request_number }}</h5>
+            <p class="text-muted small mb-3">Please provide a reason for rejecting this requisition.</p>
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <textarea name="reason" class="form-control" rows="4" placeholder="Reason for rejection..." required></textarea>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-danger">Reject</button>
+                    <a href="{{ portal_url }}" class="btn btn-outline-secondary">Go to Portal</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

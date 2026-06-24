@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block page_title %}Transport Requisition Report{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="page-title mb-1">Transport Requisition Report</h2>
+        <p class="text-muted mb-0 small">View and filter all transport requisitions</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'transport_requisition:export_excel' %}?date_from={{ date_from }}&date_to={{ date_to }}&status={{ status_filter }}" class="btn btn-success">
+            <i class="bi bi-file-earmark-excel me-1"></i> Excel
+        </a>
+        <button class="btn btn-outline-secondary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> Print
+        </button>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small">Date From</label>
+                <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Date To</label>
+                <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="pending_first" {% if status_filter == 'pending_first' %}selected{% endif %}>Pending 1st</option>
+                    <option value="pending_second" {% if status_filter == 'pending_second' %}selected{% endif %}>Pending 2nd</option>
+                    <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                    <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-filter me-1"></i> Filter
+                </button>
+                <a href="{% url 'transport_requisition:report' %}" class="btn btn-outline-secondary btn-sm flex-fill">
+                    <i class="bi bi-x me-1"></i> Clear
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm" style="background:#f8fafc;">
+            <div class="card-body text-center">
+                <div class="fw-bold fs-3">{{ total }}</div>
+                <div class="text-muted small">Total Requisitions</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm" style="background:#f0fdf4;">
+            <div class="card-body text-center">
+                <div class="fw-bold fs-3 text-success">{{ approved }}</div>
+                <div class="text-muted small">Approved</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm" style="background:#fef2f2;">
+            <div class="card-body text-center">
+                <div class="fw-bold fs-3 text-danger">{{ rejected }}</div>
+                <div class="text-muted small">Rejected</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm" style="background:#fffbeb;">
+            <div class="card-body text-center">
+                <div class="fw-bold fs-3 text-warning">{{ pending }}</div>
+                <div class="text-muted small">Pending</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Destination</th>
+                        <th>Vehicle</th>
+                        <th>Pick-up Date</th>
+                        <th>Driver</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in requisitions %}
+                    <tr>
+                        <td class="fw-semibold">{{ r.request_number }}</td>
+                        <td>{{ r.full_name }}</td>
+                        <td>{{ r.destination }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ r.get_vehicle_type_display }}{% if r.vehicle_type == 'other' and r.vehicle_type_other %} — {{ r.vehicle_type_other }}{% endif %}</span></td>
+                        <td class="small">{{ r.pick_up_date|date:"M d, Y" }}</td>
+                        <td>{% if r.driver %}{{ r.driver.name }}{% else %}<span class="text-muted small">—</span>{% endif %}</td>
+                        <td>
+                            {% if r.status == 'pending_first' %}
+                                <span class="badge bg-warning">Pending 1st</span>
+                            {% elif r.status == 'pending_second' %}
+                                <span class="badge bg-info">Pending 2nd</span>
+                            {% elif r.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% elif r.status == 'rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'transport_requisition:detail' r.id %}" class="btn btn-sm btn-outline-secondary" title="View">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-muted">No requisitions match your filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style media="print">
+    .sidebar, .topbar, .btn, .content-card .card-header, footer, form { display: none !important; }
+    .main-wrapper { margin-left: 0 !important; padding: 0 !important; }
+    .card { border: none !important; box-shadow: none !important; }
+    .badge { border: 1px solid #000 !important; }
+</style>
+{% endblock %}

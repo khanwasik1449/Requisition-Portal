@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Requisition Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .container { max-width: 900px; }
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            padding: 40px 32px;
+            text-align: center;
+            transition: transform .2s, box-shadow .2s;
+            background: #fff;
+            height: 100%;
+        }
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        }
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        .card h5 { font-weight: 700; color: #1e293b; }
+        .card p { color: #64748b; font-size: .9rem; margin-bottom: 20px; }
+        .brand {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 40px;
+        }
+        .brand h1 { font-weight: 800; font-size: 2.2rem; }
+        .brand p { opacity: .85; font-size: 1.05rem; }
+        .btn-login {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        @media (max-width: 768px) {
+            .card { padding: 24px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container position-relative">
+        <a href="{% url 'login' %}" class="btn btn-light btn-login shadow-sm">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+        </a>
+
+        <div class="brand">
+            <h1>Requisition Portal</h1>
+            <p>Enterprise Resource Management</p>
+        </div>
+
+        <div class="text-center text-white mb-4" style="opacity:.9;font-size:.9rem;line-height:1.6;">
+            <p class="mb-0">Sign in required to submit requisitions. Payslip requests are open to all.</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-3">
+                <a href="{% url 'ict_requisition:create' %}" class="text-decoration-none">
+                    <div class="card">
+                        <div class="icon">💻</div>
+                        <h5>ICT Requisition</h5>
+                        <p>Request IT equipment, software licenses, and accessories</p>
+                        <span class="btn btn-primary">Get Started</span>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'transport_requisition:create' %}" class="text-decoration-none">
+                    <div class="card">
+                        <div class="icon">🚗</div>
+                        <h5>Transport Requisition</h5>
+                        <p>Request vehicle transport for official trips and events</p>
+                        <span class="btn btn-primary">Get Started</span>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'internal_requisition:create' %}" class="text-decoration-none">
+                    <div class="card">
+                        <div class="icon">📋</div>
+                        <h5>Internal Requisition</h5>
+                        <p>Request office supplies, stationery, and internal resources</p>
+                        <span class="btn btn-primary">Get Started</span>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'payslip:request_payslip' %}" class="text-decoration-none">
+                    <div class="card">
+                        <div class="icon">💰</div>
+                        <h5>Payslip Request</h5>
+                        <p>Request your payslip by submitting your name, PIN, and months</p>
+                        <span class="btn btn-primary">Request Now</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <a href="{% url 'documentation' %}" class="btn btn-outline-light btn-sm me-2">📖 View</a>
+            <a href="{% url 'documentation' %}?download=pdf" class="btn btn-outline-light btn-sm">⬇ PDF</a>
+        </div>
+        <p class="text-center text-white mt-3" style="opacity:.7;font-size:.85rem;">
+            <a href="{% url 'signup' %}" class="text-white fw-semibold">Sign up</a> or
+            <a href="{% url 'login' %}" class="text-white fw-semibold">sign in</a> to submit requisitions.
+        </p>
+    </div>
+</body>
+</html>

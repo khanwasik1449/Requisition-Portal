@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>HR Contract System</title>
+
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        :root{
+
+            --bg:#F8FAFC;
+            --sidebar:#0F172A;
+            --sidebar-light:#1E293B;
+
+            --card:#FFFFFF;
+            --border:#E2E8F0;
+
+            --text:#0F172A;
+            --muted:#64748B;
+
+            --primary:#2563EB;
+            --primary-hover:#1D4ED8;
+
+            --success:#10B981;
+            --danger:#EF4444;
+
+            --radius:18px;
+
+        }
+
+        body{
+
+            background:var(--bg);
+            font-family:'Inter',sans-serif;
+            color:var(--text);
+
+        }
+
+        /* SIDEBAR */
+
+        .sidebar-overlay{
+            display:none;
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,.5);
+            z-index:998;
+        }
+        .sidebar-overlay.show{ display:block; }
+
+        .sidebar{
+            position:fixed;
+            left:0;
+            top:0;
+            width:260px;
+            height:100vh;
+            background:linear-gradient(180deg,#0F172A 0%,#111827 100%);
+            padding:24px 18px;
+            overflow-y:auto;
+            border-right:1px solid rgba(255,255,255,.05);
+            z-index:999;
+        }
+
+        .brand{
+
+            display:flex;
+            align-items:center;
+            gap:12px;
+
+            margin-bottom:30px;
+            padding:0 8px;
+
+        }
+
+        .brand-icon{
+
+            width:46px;
+            height:46px;
+
+            border-radius:14px;
+
+            background:rgba(37,99,235,.12);
+
+            display:flex;
+            align-items:center;
+            justify-content:center;
+
+            color:#60A5FA;
+
+        }
+
+        .brand h4{
+
+            font-size:18px;
+            font-weight:700;
+            margin:0;
+
+            color:#fff;
+
+            letter-spacing:-0.02em;
+
+        }
+
+        .brand small{
+
+            color:#94A3B8;
+            font-size:12px;
+
+        }
+
+        /* Menu */
+
+        .menu-title{
+
+            color:#64748B;
+            font-size:11px;
+            font-weight:600;
+
+            letter-spacing:.12em;
+            text-transform:uppercase;
+
+            margin:22px 10px 12px;
+
+        }
+
+        .sidebar a{
+
+            display:flex;
+            align-items:center;
+            gap:12px;
+
+            text-decoration:none;
+
+            color:#CBD5E1;
+
+            padding:12px 14px;
+
+            border-radius:14px;
+
+            margin-bottom:6px;
+
+            transition:.2s ease;
+
+            font-size:14px;
+            font-weight:500;
+
+        }
+
+        .sidebar a:hover{
+
+            background:rgba(255,255,255,.06);
+            color:#fff;
+
+            transform:translateX(2px);
+
+        }
+
+        .sidebar a.active{
+
+            background:linear-gradient(
+                135deg,
+                #2563EB,
+                #1D4ED8
+            );
+
+            color:#fff;
+
+            box-shadow:
+                0 8px 18px rgba(37,99,235,.25);
+
+        }
+
+        /* Bottom User */
+
+        .sidebar-footer{
+
+            margin-top:28px;
+
+            padding:16px;
+
+            border-radius:16px;
+
+            background:rgba(255,255,255,.04);
+
+            border:1px solid rgba(255,255,255,.05);
+
+        }
+
+        .sidebar-footer small{
+
+            color:#94A3B8;
+            display:block;
+            margin-bottom:10px;
+
+        }
+
+        .logout-btn{
+
+            width:100%;
+
+            border:none;
+
+            background:#EF4444;
+
+            color:#fff;
+
+            height:42px;
+
+            border-radius:12px;
+
+            font-size:14px;
+            font-weight:600;
+
+            transition:.2s;
+
+        }
+
+        .logout-btn:hover{
+
+            background:#DC2626;
+
+        }
+
+        /* MAIN */
+
+        .main{
+
+            margin-left:260px;
+
+            min-height:100vh;
+
+            padding:28px;
+
+        }
+
+        /* TOPBAR */
+
+        .topbar{
+
+            background:rgba(255,255,255,.85);
+
+            backdrop-filter:blur(10px);
+
+            border:1px solid rgba(255,255,255,.5);
+
+            border-radius:22px;
+
+            padding:18px 24px;
+
+            margin-bottom:24px;
+
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+
+            box-shadow:
+                0 8px 30px rgba(15,23,42,.04);
+
+        }
+
+        .topbar h5{
+
+            margin:0;
+
+            font-size:22px;
+            font-weight:700;
+
+            letter-spacing:-0.03em;
+
+        }
+
+        .topbar p{
+
+            margin:0;
+
+            color:var(--muted);
+
+            font-size:13px;
+
+        }
+
+        /* CONTENT CARD */
+
+        .content-card{
+
+            background:#fff;
+
+            border-radius:24px;
+
+            padding:24px;
+
+            border:1px solid var(--border);
+
+            box-shadow:
+                0 10px 35px rgba(15,23,42,.04);
+
+        }
+
+        .mobile-toggle{
+            display:none;
+        }
+
+        @media(max-width:992px){
+            .sidebar{
+                width:280px;
+                padding:20px 14px;
+                transform:translateX(-100%);
+                transition:transform .3s ease;
+            }
+            .sidebar.show{ transform:translateX(0); }
+            .sidebar-overlay.show{ display:block; }
+            .main{ margin-left:0; padding:16px; }
+            .topbar{ flex-direction:column; align-items:flex-start; gap:12px; }
+            .content-card{ padding:16px; border-radius:16px; }
+            .mobile-toggle{ display:block; position:fixed; top:20px; left:20px; z-index:1000; background:var(--primary); color:#fff; border:none; width:40px; height:40px; border-radius:10px; font-size:1.2rem; cursor:pointer; }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR -->
+
+<div class="sidebar" id="sidebar">
+
+    {% if user.is_authenticated %}
+
+    <!-- Brand -->
+
+    <div class="brand">
+
+        <div class="brand-icon">
+
+            <img src="http://bracied.com/wp-content/uploads/2025/06/BRAC-IED-Color_PNG.png" 
+                 alt="BRAC IED Logo"
+                 style="width:40px; height:40px; object-fit:contain;">
+
+        </div>
+
+        <div>
+
+            <h4>HR System</h4>
+
+            <small>Contract Management</small>
+
+        </div>
+
+    </div>
+
+    <!-- Menu -->
+
+    <div class="menu-title">
+        Main Menu
+    </div>
+
+    <a href="{% url 'contracts:create_contract' %}"
+       class="{% if 'create' in request.path and 'contracts' in request.path %}active{% endif %}">
+
+        <span>➕</span>
+        Create Contract
+
+    </a>
+
+    <a href="{% url 'contracts:bulk_upload_contracts' %}"
+       class="{% if 'bulk' in request.path and 'contracts' in request.path %}active{% endif %}">
+
+        <span>📦</span>
+        Bulk Contracts
+
+    </a>
+
+    <a href="{% url 'contracts:contract_list' %}"
+       class="{% if 'list' in request.path and 'contracts' in request.path %}active{% endif %}">
+
+        <span>📄</span>
+        Contracts List
+
+    </a>
+
+    <a href="{% url 'contracts:email_log' %}"
+       class="{% if 'email-log' in request.path %}active{% endif %}">
+
+        <span>📧</span>
+        Email Log
+
+    </a>
+
+    <a href="{% url 'contracts:email_settings' %}"
+       class="{% if 'email-settings' in request.path %}active{% endif %}">
+
+        <span>⚙️</span>
+        Email Settings
+
+    </a>
+
+    <a href="{% url 'payslip:create_payslip' %}"
+       class="{% if 'payslip' in request.path and not 'list' in request.path %}active{% endif %}">
+
+        <span>💰</span>
+        Create Payslip
+
+    </a>
+
+    <a href="{% url 'payslip:payslip_list' %}"
+       class="{% if 'payslip/list' in request.path %}active{% endif %}">
+
+        <span>📊</span>
+        Payslip List
+
+    </a>
+
+    <a href="{% url 'payslip:payslip_requests' %}"
+       class="{% if 'payslip/requests' in request.path %}active{% endif %}">
+
+        <span>📩</span>
+        Payslip Requests
+
+    </a>
+
+    <a href="{% url 'employees:employee_list' %}"
+       class="{% if 'employees' in request.path %}active{% endif %}">
+
+        <span>👥</span>
+        Employees
+
+    </a>
+
+    <a href="{% url 'contracts:system_manual' %}"
+       class="{% if 'manual' in request.path %}active{% endif %}">
+
+        <span>📖</span>
+        Manual
+
+    </a>
+
+    <!-- Footer -->
+
+    <div class="sidebar-footer">
+
+        <small>
+            Logged in as<br>
+            <strong style="color:#fff">
+                {{ user.username }}
+            </strong>
+        </small>
+
+        <form method="post" action="{% url 'logout' %}">
+
+            {% csrf_token %}
+
+            <button type="submit" class="logout-btn">
+
+                Logout
+
+            </button>
+
+        </form>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+<!-- MAIN -->
+
+    <div class="main">
+
+    <!-- MESSAGES -->
+    {% if messages %}
+    <div id="django-messages">
+        {% for message in messages %}
+        <div class="app-message {{ message.tags }}" {{ message.extra_tags }}>
+            <span class="msg-close" onclick="this.parentElement.remove();">&times;</span>
+            {{ message|safe }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <style>
+        .app-message {
+            padding: 12px 36px 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            position: relative;
+            animation: msgSlide .3s ease;
+        }
+        @keyframes msgSlide { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+        .app-message.success { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+        .app-message.error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+        .app-message.warning { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+        .app-message.info { background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; }
+        .msg-close {
+            position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+            cursor: pointer; font-size: 18px; line-height: 1; opacity: .6;
+        }
+        .msg-close:hover { opacity: 1; }
+    </style>
+
+    <!-- TOPBAR -->
+
+    <div class="topbar">
+
+        <div>
+
+            <h5>
+                Dashboard
+            </h5>
+
+            <p>
+                HR Contract Management System
+            </p>
+
+        </div>
+
+        <div style="font-size:13px;color:#64748B">
+
+            {{ user.username }}
+
+        </div>
+
+    </div>
+
+    <!-- PAGE CONTENT -->
+
+    <div class="content-card">
+
+        {% block content %}
+        {% endblock %}
+
+    </div>
+
+    <div style="text-align:center;padding:20px 28px;font-size:13px;color:#94A3B8;border-top:1px solid #E2E8F0;margin-top:24px;">
+        &copy; {% now "Y" %} BRAC Institute of Educational Development. All rights reserved.
+    </div>
+
+</div>
+
+<script>
+function toggleSidebar(){
+    var s=document.getElementById('sidebar'),o=document.getElementById('sidebarOverlay');
+    s.classList.toggle('show');o.classList.toggle('show');
+}
+</script>
+
+</body>
+</html>

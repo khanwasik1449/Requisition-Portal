@@ -1,0 +1,86 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<style>
+  :root { --c-bg: #F7F6F3; --c-surface: #FFFFFF; --c-border: rgba(0,0,0,0.08); --c-accent: #2563EB; --c-muted: #6B6A66; --c-success: #16A34A; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', Arial, sans-serif; background: var(--c-bg); }
+  .wrapper { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+  .card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  h1 { margin-bottom: 1.5rem; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--c-muted); font-size: 13px; }
+  .field input, .field select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--c-accent); }
+  .btn { background: var(--c-success); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; }
+  .btn:hover { background: #15803D; }
+  .btn-secondary { background: #6B7280; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; }
+  .btn-secondary:hover { background: #4B5563; }
+  .row { display: flex; gap: 1rem; }
+  .row .field { flex: 1; }
+</style>
+
+<div class="wrapper">
+  <h1>Add Employee</h1>
+  
+  <form method="post">
+    {% csrf_token %}
+    <div class="card">
+      <div class="field">
+        <label>PIN <span style="color:red">*</span></label>
+        <input type="text" name="pin" required placeholder="Employee PIN" value="{{ form_data.pin|default:'' }}">
+      </div>
+      
+      <div class="field">
+        <label>Name <span style="color:red">*</span></label>
+        <input type="text" name="name" required placeholder="Full Name" value="{{ form_data.name|default:'' }}">
+      </div>
+      
+      <div class="row">
+        <div class="field">
+          <label>Designation <span style="color:red">*</span></label>
+          <input type="text" name="designation" required placeholder="Job Title" value="{{ form_data.designation|default:'' }}">
+        </div>
+        
+        <div class="field">
+          <label>Gender</label>
+          <select name="gender">
+            <option value="">Select</option>
+            <option value="Male" {% if form_data.gender == 'Male' %}selected{% endif %}>Male</option>
+            <option value="Female" {% if form_data.gender == 'Female' %}selected{% endif %}>Female</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="field">
+        <label>TIN Number</label>
+        <input type="text" name="tin" placeholder="TIN Number" value="{{ form_data.tin|default:'' }}">
+      </div>
+      
+      <div class="row">
+        <div class="field">
+          <label>Phone Number</label>
+          <input type="text" name="phone" placeholder="Phone Number" value="{{ form_data.phone|default:'' }}">
+        </div>
+        
+        <div class="field">
+          <label>Email Address <span style="color:red">*</span></label>
+          <input type="email" name="email" required placeholder="Email Address" value="{{ form_data.email|default:'' }}">
+        </div>
+      </div>
+      
+      <div class="field">
+        <label>Salary</label>
+        <input type="number" name="salary" placeholder="Basic Salary" step="0.01" value="{{ form_data.salary|default:'' }}">
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-top: 1.5rem;">
+        <button type="submit" class="btn">Add Employee</button>
+        <a href="{% url 'employees:employee_list' %}" class="btn-secondary">Cancel</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

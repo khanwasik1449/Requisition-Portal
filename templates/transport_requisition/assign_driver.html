@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block page_title %}Assign Driver — Transport {{ r.request_number }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-truck" style="color:#d97706;"></i> Assign Driver & Vehicle
+            </div>
+            <div class="card-body">
+                <p class="fw-semibold">Assign a driver for Transport Requisition {{ r.request_number }}</p>
+                <div class="p-3 bg-light rounded mb-3 small">
+                    <div><strong>Requester:</strong> {{ r.full_name }}</div>
+                    <div><strong>Destination:</strong> {{ r.destination }}</div>
+                    <div><strong>Pick-up:</strong> {{ r.pick_up_date|date:"M d, Y" }} {{ r.pick_up_time|time:"H:i" }}</div>
+                    <div><strong>Vehicle:</strong> {{ r.get_vehicle_type_display }}</div>
+                </div>
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Select Driver <span class="text-danger">*</span></label>
+                        <select name="driver" class="form-select" required>
+                            <option value="">-- Select Driver --</option>
+                            {% for d in drivers %}
+                                <option value="{{ d.id }}">{{ d.name }} — {{ d.car_no }} ({{ d.cell_number }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Assign
+                        </button>
+                        <a href="{% url 'transport_requisition:detail' r.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

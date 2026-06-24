@@ -1,0 +1,335 @@
+{% extends base_template|default:'base.html' %}
+{% block page_title %}New ICT Requisition{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-plus-circle" style="color:#2563eb;"></i> ICT Requisition Form
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    {% if error %}
+                        <div class="alert alert-danger py-2 small">{{ error }}</div>
+                    {% endif %}
+
+                    <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="bi bi-person me-1"></i> Personal Information</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" name="full_name" class="form-control" placeholder="Your full name" value="{{ request.user.get_full_name|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">ICT Email Address <span class="text-danger">*</span></label>
+                            <input type="email" name="email_address" class="form-control" placeholder="email@example.com" value="{{ request.user.email|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Designation <span class="text-danger">*</span></label>
+                            <input type="text" name="designation" class="form-control" placeholder="e.g. Software Engineer" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">PIN Number <span class="text-danger">*</span></label>
+                            <input type="text" name="pin_number" class="form-control" placeholder="Staff PIN number" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+                            <input type="text" name="contact_number" class="form-control" placeholder="e.g. +254 7XX XXX XXX" required>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="bi bi-calendar me-1"></i> Dates</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">Requisition Date <span class="text-danger">*</span></label>
+                            <input type="date" name="requisition_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Requirement Date <span class="text-danger">*</span></label>
+                            <input type="date" name="requirement_date" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Return Date</label>
+                            <input type="date" name="return_date" class="form-control">
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-3" style="color:#2563eb;"><i class="bi bi-device-ssd me-1"></i> Equipment Details</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Device / Equipment <span class="text-danger">*</span></label>
+                            <div class="border rounded p-3 bg-white" style="max-height: 280px; overflow-y: auto;">
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Audio Recorder" id="eq_Audio_Recorder">
+                                    <label class="form-check-label" for="eq_Audio_Recorder">Audio Recorder</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Apple Keyboard" id="eq_Apple_Keyboard">
+                                    <label class="form-check-label" for="eq_Apple_Keyboard">Apple Keyboard</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Apple Pencil" id="eq_Apple_Pencil">
+                                    <label class="form-check-label" for="eq_Apple_Pencil">Apple Pencil</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Bluetooth Mouse Battery" id="eq_Bluetooth_Mouse_Battery">
+                                    <label class="form-check-label" for="eq_Bluetooth_Mouse_Battery">Bluetooth Mouse Battery</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="CPU" id="eq_CPU">
+                                    <label class="form-check-label" for="eq_CPU">CPU</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Charger" id="eq_Charger">
+                                    <label class="form-check-label" for="eq_Charger">Charger</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Dell Laptop Charger" id="eq_Dell_Laptop_Charger">
+                                    <label class="form-check-label" for="eq_Dell_Laptop_Charger">Dell Laptop Charger</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Ear Phone / Earphone" id="eq_Ear_Phone">
+                                    <label class="form-check-label" for="eq_Ear_Phone">Ear Phone / Earphone</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="EPSON L395 Printer" id="eq_EPSON_Printer">
+                                    <label class="form-check-label" for="eq_EPSON_Printer">EPSON L395 Printer</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Flash Drive / Pen Drive" id="eq_Flash_Drive">
+                                    <label class="form-check-label" for="eq_Flash_Drive">Flash Drive / Pen Drive</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Graphic Card" id="eq_Graphic_Card">
+                                    <label class="form-check-label" for="eq_Graphic_Card">Graphic Card</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Hard Disk" id="eq_Hard_Disk">
+                                    <label class="form-check-label" for="eq_Hard_Disk">Hard Disk</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Head Phone" id="eq_Head_Phone">
+                                    <label class="form-check-label" for="eq_Head_Phone">Head Phone</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Headphone Connector" id="eq_Headphone_Connector">
+                                    <label class="form-check-label" for="eq_Headphone_Connector">Headphone Connector</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="iPad" id="eq_iPad">
+                                    <label class="form-check-label" for="eq_iPad">iPad</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="iPad Pro Charger (20 Watt)" id="eq_iPad_Charger">
+                                    <label class="form-check-label" for="eq_iPad_Charger">iPad Pro Charger (20 Watt)</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Keyboard" id="eq_Keyboard">
+                                    <label class="form-check-label" for="eq_Keyboard">Keyboard</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Laptop" id="eq_Laptop">
+                                    <label class="form-check-label" for="eq_Laptop">Laptop</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Laptop Bag / Carry Bag" id="eq_Laptop_Bag">
+                                    <label class="form-check-label" for="eq_Laptop_Bag">Laptop Bag / Carry Bag</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Laptop Charger" id="eq_Laptop_Charger">
+                                    <label class="form-check-label" for="eq_Laptop_Charger">Laptop Charger</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Laptop Cooler" id="eq_Laptop_Cooler">
+                                    <label class="form-check-label" for="eq_Laptop_Cooler">Laptop Cooler</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Laptop Stand" id="eq_Laptop_Stand">
+                                    <label class="form-check-label" for="eq_Laptop_Stand">Laptop Stand</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Modem" id="eq_Modem">
+                                    <label class="form-check-label" for="eq_Modem">Modem</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Monitor" id="eq_Monitor">
+                                    <label class="form-check-label" for="eq_Monitor">Monitor</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Mouse" id="eq_Mouse">
+                                    <label class="form-check-label" for="eq_Mouse">Mouse</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Mouse Pad" id="eq_Mouse_Pad">
+                                    <label class="form-check-label" for="eq_Mouse_Pad">Mouse Pad</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Multi Plug" id="eq_Multi_Plug">
+                                    <label class="form-check-label" for="eq_Multi_Plug">Multi Plug</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Nib (Wacom Intuos CTL6100)" id="eq_Nib">
+                                    <label class="form-check-label" for="eq_Nib">Nib (Wacom Intuos CTL6100)</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Notebook / Diary" id="eq_Notebook">
+                                    <label class="form-check-label" for="eq_Notebook">Notebook / Diary</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Original A4 Tech Branded Keyboard and Mouse" id="eq_A4_Keyboard">
+                                    <label class="form-check-label" for="eq_A4_Keyboard">Original A4 Tech Branded Keyboard and Mouse</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Pad" id="eq_Pad">
+                                    <label class="form-check-label" for="eq_Pad">Pad</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Pen Drive" id="eq_Pen_Drive">
+                                    <label class="form-check-label" for="eq_Pen_Drive">Pen Drive</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Portable Hard Drive" id="eq_Portable_Hard_Drive">
+                                    <label class="form-check-label" for="eq_Portable_Hard_Drive">Portable Hard Drive</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Power Supply" id="eq_Power_Supply">
+                                    <label class="form-check-label" for="eq_Power_Supply">Power Supply</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Printer (Black & White)" id="eq_Printer_BW">
+                                    <label class="form-check-label" for="eq_Printer_BW">Printer (Black & White)</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Processor" id="eq_Processor">
+                                    <label class="form-check-label" for="eq_Processor">Processor</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="RAM" id="eq_RAM">
+                                    <label class="form-check-label" for="eq_RAM">RAM</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="RJ Connector" id="eq_RJ_Connector">
+                                    <label class="form-check-label" for="eq_RJ_Connector">RJ Connector</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Scanner" id="eq_Scanner">
+                                    <label class="form-check-label" for="eq_Scanner">Scanner</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Screen Projector" id="eq_Screen_Projector">
+                                    <label class="form-check-label" for="eq_Screen_Projector">Screen Projector</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Sound System" id="eq_Sound_System">
+                                    <label class="form-check-label" for="eq_Sound_System">Sound System</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Speaker" id="eq_Speaker">
+                                    <label class="form-check-label" for="eq_Speaker">Speaker</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Tab" id="eq_Tab">
+                                    <label class="form-check-label" for="eq_Tab">Tab</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Tab Cover" id="eq_Tab_Cover">
+                                    <label class="form-check-label" for="eq_Tab_Cover">Tab Cover</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Thermaltake Laptop Stand" id="eq_Thermaltake_Stand">
+                                    <label class="form-check-label" for="eq_Thermaltake_Stand">Thermaltake Laptop Stand</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value='TV (65")' id="eq_TV_65">
+                                    <label class="form-check-label" for="eq_TV_65">TV (65")</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="UPS" id="eq_UPS">
+                                    <label class="form-check-label" for="eq_UPS">UPS</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="USB Hub" id="eq_USB_Hub">
+                                    <label class="form-check-label" for="eq_USB_Hub">USB Hub</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="USB Type-C to Type-B Hub" id="eq_USB_TypeC_Hub">
+                                    <label class="form-check-label" for="eq_USB_TypeC_Hub">USB Type-C to Type-B Hub</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Wacom" id="eq_Wacom">
+                                    <label class="form-check-label" for="eq_Wacom">Wacom</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Wacom (Graphic Tab)" id="eq_Wacom_Graphic">
+                                    <label class="form-check-label" for="eq_Wacom_Graphic">Wacom (Graphic Tab)</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Wacom Intuos (CTL6100)" id="eq_Wacom_Intuos">
+                                    <label class="form-check-label" for="eq_Wacom_Intuos">Wacom Intuos (CTL6100)</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Webcam" id="eq_Webcam">
+                                    <label class="form-check-label" for="eq_Webcam">Webcam</label>
+                                </div>
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" name="device_equipment" value="Wireless Mouse Battery" id="eq_Wireless_Mouse_Battery">
+                                    <label class="form-check-label" for="eq_Wireless_Mouse_Battery">Wireless Mouse Battery</label>
+                                </div>
+                                <hr class="my-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <input class="form-check-input mt-0" type="checkbox" id="eq_other_check" onchange="document.getElementById('eq_other_input').disabled=!this.checked">
+                                    </span>
+                                    <input type="text" class="form-control" id="eq_other_input" name="device_equipment" placeholder="Type equipment name..." disabled>
+                                </div>
+                            </div>
+                            <small class="text-muted">Check all that apply. Use the field below to add items not listed.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Supervisor <span class="text-danger">*</span></label>
+                            <select name="supervisor" class="form-select" required>
+                                <option value="">-- Select Supervisor --</option>
+                                {% for s in supervisors %}
+                                    <option value="{{ s.id }}">{{ s.get_full_name|default:s.username }} — {{ s.email }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Equipment Specification / Configuration</label>
+                        <textarea name="equipment_specification" class="form-control" rows="3" placeholder="Detailed specs, model numbers, configuration requirements..."></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Purpose <span class="text-danger">*</span></label>
+                        <textarea name="purpose" class="form-control" rows="3" placeholder="Why is this equipment needed?" required></textarea>
+                    </div>
+
+                    <hr>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-send me-1"></i> Submit Request
+                        </button>
+                        <a href="{% if user.is_authenticated %}{% url 'ict_requisition:list' %}{% else %}{% url 'home' %}{% endif %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelector('form').addEventListener('submit', function(e) {
+    const checked = document.querySelectorAll('input[name="device_equipment"]:checked');
+    if (checked.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one equipment item.');
+    }
+});
+</script>
+{% endblock %}

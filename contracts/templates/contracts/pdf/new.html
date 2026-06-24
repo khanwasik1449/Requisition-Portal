@@ -1,0 +1,62 @@
+{% load indian_numbers %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>New Contract - {{ contract.name }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 24px; margin-bottom: 5px; }
+        .content { margin: 20px 0; line-height: 1.6; }
+        .details { margin: 20px 0; }
+        .details table { width: 100%; border-collapse: collapse; }
+        .details td { padding: 8px; border: 1px solid #ddd; }
+        .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>NEW CONTRACT AGREEMENT</h1>
+        <p>Contract No: {{ contract.contract_no }}</p>
+    </div>
+    
+    <div class="content">
+        <p>This New Contract is entered into between the Company and the Employee.</p>
+        
+        <div class="details">
+            <table>
+                <tr>
+                    <td><strong>Employee Name:</strong></td>
+                    <td>{{ contract.name }}</td>
+                </tr>
+                <tr>
+                    <td><strong>PIN:</strong></td>
+                    <td>{{ contract.pin }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Designation:</strong></td>
+                    <td>{{ contract.designation }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Basic Salary:</strong></td>
+                    <td>{{ contract.basic_salary|indian_number }}</td>
+                </tr>
+                <tr>
+                    <td><strong>Contract Period:</strong></td>
+                    <td>{{ contract.start_date }} to {{ contract.end_date }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="content">
+            <h3>Terms and Conditions</h3>
+            <p>Terms to be defined...</p>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Generated on {{ contract.created_at|date:"F d, Y" }}</p>
+    </div>
+</body>
+</html>

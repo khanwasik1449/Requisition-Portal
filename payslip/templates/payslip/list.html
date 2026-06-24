@@ -1,0 +1,44 @@
+{% extends 'contracts/base.html' %}
+
+{% block content %}
+<div class="card-box">
+    <h4 class="mb-4">Payslip List</h4>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>PIN</th>
+                <th>Name</th>
+                <th>Designation</th>
+                <th>Month</th>
+                <th>Year</th>
+                <th>Basic</th>
+                <th>Gross</th>
+                <th>Net</th>
+                <th>PDF</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payslip in payslips %}
+            <tr>
+                <td>{{ payslip.pin }}</td>
+                <td>{{ payslip.name }}</td>
+                <td>{{ payslip.designation }}</td>
+                <td>{{ payslip.month }}</td>
+                <td>{{ payslip.year }}</td>
+                <td>{{ payslip.basic_salary }}</td>
+                <td><strong>{{ payslip.gross_salary }}</strong></td>
+                <td><strong>{{ payslip.net_salary }}</strong></td>
+                <td><a href="{% url 'payslip:generate_payslip_pdf' payslip.id %}" class="btn btn-sm btn-primary">Download</a></td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center">No payslips found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <a href="{% url 'payslip:create_payslip' %}" class="btn btn-success">Create New Payslip</a>
+</div>
+{% endblock %}

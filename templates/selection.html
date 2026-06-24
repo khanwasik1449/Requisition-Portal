@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block page_title %}Select Requisition Type{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center" style="margin-top: 20px;">
+    <div class="col-12 text-center mb-4">
+        <h2 class="page-title" style="font-size:1.6rem;">What would you like to do?</h2>
+        <p class="text-muted">Select a requisition type to get started</p>
+    </div>
+</div>
+
+<div class="row g-4 justify-content-center">
+    <div class="col-md-4">
+        <a href="{% url 'ict_requisition:list' %}" class="text-decoration-none">
+            <div class="selection-card">
+                <div class="icon">💻</div>
+                <h5>ICT Requisition</h5>
+                <p>Request IT equipment, software licenses, and accessories</p>
+                <span class="btn btn-primary mt-3">Open</span>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'transport_requisition:list' %}" class="text-decoration-none">
+            <div class="selection-card">
+                <div class="icon">🚗</div>
+                <h5>Transport Requisition</h5>
+                <p>Request vehicle transport for official trips and events</p>
+                <span class="btn btn-primary mt-3">Open</span>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{% url 'internal_requisition:list' %}" class="text-decoration-none">
+            <div class="selection-card">
+                <div class="icon">📋</div>
+                <h5>Internal Requisition</h5>
+                <p>Request office supplies, stationery, and internal resources</p>
+                <span class="btn btn-primary mt-3">Open</span>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

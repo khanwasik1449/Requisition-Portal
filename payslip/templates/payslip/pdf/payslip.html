@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payslip - {{ payslip.pin }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .header p { margin: 5px 0; }
+        .employee-info { margin-bottom: 20px; }
+        .employee-info table { width: 100%; }
+        .employee-info td { padding: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; }
+        .total-row { font-weight: bold; }
+        .net-pay { font-size: 18px; font-weight: bold; background: #f0f0f0; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>PAYSLIP</h1>
+        <p><strong>Project:</strong> {{ payslip.project }} | <strong>Branch:</strong> {{ payslip.branch }}</p>
+        <p>Payslip for the month of {{ payslip.month }} {{ payslip.year }}</p>
+    </div>
+    
+    <div class="employee-info">
+        <table>
+            <tr>
+                <td><strong>PIN:</strong> {{ payslip.pin }}</td>
+                <td><strong>Name:</strong> {{ payslip.name }}</td>
+            </tr>
+            <tr>
+                <td><strong>Designation:</strong> {{ payslip.designation }}</td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+    
+    <table>
+        <tr>
+            <th colspan="2">SALARY BREAKDOWN</th>
+        </tr>
+        <tr>
+            <td>Basic Salary (50%)</td>
+            <td>{{ payslip.basic_salary }}</td>
+        </tr>
+        <tr>
+            <td>House Rent (30%)</td>
+            <td>{{ payslip.house_rent }}</td>
+        </tr>
+        <tr>
+            <td>Medical Allowance (10%)</td>
+            <td>{{ payslip.medical_allowance }}</td>
+        </tr>
+        <tr>
+            <td>Conveyance (10%)</td>
+            <td>{{ payslip.conveyance }}</td>
+        </tr>
+        <tr class="total-row">
+            <td>Total Salary</td>
+            <td>{{ payslip.gross_salary }}</td>
+        </tr>
+    </table>
+    
+    <table>
+        <tr>
+            <th colspan="2">DEDUCTIONS</th>
+        </tr>
+        <tr>
+            <td>Transport</td>
+            <td>{{ payslip.transport }}</td>
+        </tr>
+        <tr>
+            <td>Income Tax</td>
+            <td>{{ payslip.income_tax }}</td>
+        </tr>
+        <tr>
+            <td>Other Deduction</td>
+            <td>{{ payslip.other_deduction }}</td>
+        </tr>
+        <tr class="total-row">
+            <td>Total Deduction</td>
+            <td>{{ payslip.total_deduction }}</td>
+        </tr>
+    </table>
+    
+    <table>
+        <tr class="net-pay">
+            <td>NET PAY</td>
+            <td>{{ payslip.net_salary }}</td>
+        </tr>
+    </table>
+    
+    <div class="footer">
+        <p>This is a computer-generated document. No signature required.</p>
+    </div>
+</body>
+</html>

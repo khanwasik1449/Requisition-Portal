@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block page_title %}Email Configurations{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="page-title mb-1">Email Configurations</h2>
+        <p class="text-muted mb-0 small">Manage SMTP settings per department</p>
+    </div>
+    <a href="{% url 'notifications:config_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Add
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Department</th>
+                        <th>From Email</th>
+                        <th>Notification Email</th>
+                        <th>SMTP Host</th>
+                        <th>Active</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in configs %}
+                    <tr>
+                        <td class="fw-semibold">{{ c.get_department_display }}</td>
+                        <td>{{ c.from_email }}</td>
+                        <td>{{ c.notification_email }}</td>
+                        <td class="text-muted small">{{ c.email_host }}:{{ c.email_port }}</td>
+                        <td>
+                            {% if c.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{% url 'notifications:config_edit' c.id %}" class="btn btn-sm btn-outline-primary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'notifications:config_delete' c.id %}" class="btn btn-sm btn-outline-danger" title="Remove" onclick="return confirm('Delete {{ c.get_department_display }} email configuration?')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">No email configurations found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

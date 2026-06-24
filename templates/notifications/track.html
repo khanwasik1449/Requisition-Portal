@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ label }} Requisition {{ r.request_number }} — Tracking</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .status-icon { font-size: 3rem; }
+        .timeline-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .timeline-dot.pending { background: #f59e0b; }
+        .timeline-dot.approved { background: #16a34a; }
+        .timeline-dot.rejected { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="text-center mb-4">
+                    <h1 class="h3 mb-1">Requisition Status</h1>
+                    <p class="text-muted small">{{ label }} &bull; {{ r.request_number }}</p>
+                </div>
+
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body text-center py-4">
+                        {% if r.status == 'pending_first' or r.status == 'pending_second' %}
+                            <div class="status-icon mb-2">⏳</div>
+                            <h2 class="h5 mb-1">Pending Approval</h2>
+                            <p class="text-muted small mb-0">
+                                {% if r.status == 'pending_first' %}
+                                    Awaiting first-level approval
+                                {% else %}
+                                    First-level approved, awaiting second-level approval
+                                {% endif %}
+                            </p>
+                        {% elif r.status == 'approved' %}
+                            <div class="status-icon mb-2">✅</div>
+                            <h2 class="h5 mb-1 text-success">Approved</h2>
+                            <p class="text-muted small mb-0">This requisition has been fully approved.</p>
+                        {% elif r.status == 'rejected' %}
+                            <div class="status-icon mb-2">❌</div>
+                            <h2 class="h5 mb-1 text-danger">Rejected</h2>
+                            <p class="text-muted small mb-0">This requisition has been rejected.</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="fw-bold mb-3" style="color:#2563eb;">Details</h6>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td class="text-muted small" style="width:120px;">Request #</td>
+                                <td class="fw-semibold">{{ r.request_number }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small">Requester</td>
+                                <td>{{ r.full_name }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted small">Submitted</td>
+                                <td>{{ r.created_at|date:"M d, Y H:i" }}</td>
+                            </tr>
+                            {% if r.first_approved_at %}
+                            <tr>
+                                <td class="text-muted small">1st Approval</td>
+                                <td>{{ r.first_approved_at|date:"M d, Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if r.second_approved_at %}
+                            <tr>
+                                <td class="text-muted small">2nd Approval</td>
+                                <td>{{ r.second_approved_at|date:"M d, Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if r.rejected_at %}
+                            <tr>
+                                <td class="text-muted small">Rejected</td>
+                                <td>{{ r.rejected_at|date:"M d, Y H:i" }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if r.rejection_reason %}
+                            <tr>
+                                <td class="text-muted small">Reason</td>
+                                <td class="text-danger">{{ r.rejection_reason }}</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <p class="text-muted small mb-0">Requisition Portal &bull; BRAC</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

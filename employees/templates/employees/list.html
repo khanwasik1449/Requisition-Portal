@@ -1,0 +1,82 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<style>
+  @media (max-width: 768px) {
+    .emp-table { font-size: 12px; }
+    .emp-table th, .emp-table td { padding: 6px !important; }
+    .contract-history { display: flex; flex-wrap: wrap; gap: 3px; }
+    .btn { padding: 5px 10px; font-size: 12px; }
+    .card-box { padding: 15px !important; }
+    h4 { font-size: 18px; }
+    div[style*="display: flex"] { flex-direction: column; gap: 10px; }
+  }
+
+  .emp-table { width: 100%; border-collapse: collapse; }
+  .emp-table th, .emp-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  .emp-table th { background: #f0f0f0; }
+  .btn { padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; margin-right: 5px; }
+  .btn-edit { background: #2563EB; color: white; }
+  .btn-delete { background: #DC2626; color: white; }
+  .btn-add { background: #16A34A; color: white; padding: 8px 16px; border-radius: 6px; }
+  .contract-history { font-size: 12px; color: #666; }
+  .contract-badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 3px; }
+  .badge-new { background: #EFF6FF; color: #2563EB; }
+  .badge-ext { background: #EFF6FF; color: #2563EB; }
+  .badge-rev { background: #FFFBEB; color: #D97706; }
+  .badge-ren { background: #F0FDF4; color: #16A34A; }
+</style>
+
+<div class="card-box">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h4>Employees</h4>
+    <div style="display: flex; gap: 10px;">
+      <a href="{% url 'employees:add_employee' %}" class="btn-add">Add Employee</a>
+      <a href="{% url 'employees:import_employees' %}" class="btn-add" style="background: #6B7280;">Import CSV</a>
+    </div>
+  </div>
+  
+  <table class="emp-table">
+    <thead>
+      <tr>
+        <th>PIN</th>
+        <th>Name</th>
+        <th>Designation</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th>Salary</th>
+        <th>Contract History</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for emp in employees %}
+      <tr>
+        <td><a href="{% url 'employees:employee_detail' emp.pin %}" style="color: #2563EB; text-decoration: none; font-weight: 500;">{{ emp.pin }}</a></td>
+        <td>{{ emp.name }}</td>
+        <td>{{ emp.designation }}</td>
+        <td>{{ emp.phone|default:"-" }}</td>
+        <td>{{ emp.email|default:"-" }}</td>
+        <td>{{ emp.salary|floatformat:0 }}</td>
+        <td class="contract-history">
+          <span class="contract-badge badge-new">New: {{ emp.new_count }}</span>
+          <span class="contract-badge badge-ext">Ext: {{ emp.extension_count }}</span>
+          <span class="contract-badge badge-rev">Rev: {{ emp.revision_count }}</span>
+          <span class="contract-badge badge-ren">Ren: {{ emp.renewal_count }}</span>
+        </td>
+        <td>
+          <a href="{% url 'employees:edit_employee' emp.pk %}" class="btn btn-edit">Edit</a>
+          <a href="{% url 'employees:delete_employee' emp.pk %}" class="btn btn-delete">Delete</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8" style="text-align: center;">No employees found. Add or import employees.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block page_title %}User Management{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="page-title mb-1">User Management</h2>
+        <p class="text-muted mb-0 small">Manage users, approve accounts, and assign roles</p>
+    </div>
+    <a href="{% url 'user_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Add User
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Joined</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td class="fw-semibold">{{ u.id }}</td>
+                        <td>
+                            {{ u.username }}
+                            {% if u.is_superuser %}<span class="badge bg-dark ms-1">Super</span>{% endif %}
+                        </td>
+                        <td>{{ u.email|default:"<span class='text-muted'>—</span>" }}</td>
+                        <td>{{ u.phone|default:"<span class='text-muted'>—</span>" }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ u.get_role_display }}</span></td>
+                        <td>
+                            {% if u.is_active %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            {% else %}
+                                <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ u.date_joined|date:"M d, Y" }}</td>
+                        <td class="text-end">
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{% url 'user_edit' u.id %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% if not u.is_active %}
+                                    <a href="{% url 'user_approve' u.id %}" class="btn btn-sm btn-success" title="Approve">
+                                        <i class="bi bi-check-lg"></i>
+                                    </a>
+                                {% elif u.is_active and u != request.user %}
+                                    <a href="{% url 'user_deactivate' u.id %}" class="btn btn-sm btn-outline-danger" title="Deactivate"
+                                       onclick="return confirm('Deactivate user {{ u.username }}?')">
+                                        <i class="bi bi-pause"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-people" style="font-size:2.5rem;color:#cbd5e1;"></i>
+                            <p class="text-muted mt-2 mb-0">No users found.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

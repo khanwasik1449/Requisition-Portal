@@ -1,0 +1,233 @@
+{% load indian_numbers %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<style>
+
+/* ================= A4 PAGE CONTROL ================= */
+@page {
+    size: A4;
+    margin: 0;   /* IMPORTANT for full letterhead */
+}
+
+/* ================= RESET ================= */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #000;
+}
+
+/* ================= FULL PAGE LETTERHEAD ================= */
+.letterhead-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+
+    width: 210mm;
+    height: 297mm;
+
+    background-image: url("http://bracied.com/wp-content/uploads/2026/04/Copy-of-Django-1.png");
+    background-repeat: no-repeat;
+
+    /* ✅ PERFECT A4 FIT */
+    background-size: 210mm 297mm;
+    background-position: top left;
+
+    z-index: -1000;
+    pointer-events: none;
+}
+
+/* ================= CONTENT ================= */
+.container {
+    position: relative;
+    padding: 25mm; /* internal safe margin */
+}
+
+/* ================= TITLE ================= */
+.title {
+    margin-top: 10mm;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-decoration: underline;
+    margin-bottom: 20px;
+}
+
+/* ================= TABLE ================= */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+td {
+    padding: 3px 0;
+    vertical-align: top;
+}
+
+/* ================= TEXT ================= */
+p {
+    margin: 6px 0;
+}
+
+ol {
+    padding-left: 18px;
+}
+
+ol li {
+    margin-bottom: 8px;
+}
+
+/* ================= SIGNATURE ================= */
+.signature {
+    width: 100%;
+    margin-top: 60px;
+    table-layout: fixed;
+}
+
+.signature td {
+    width: 50%;
+    vertical-align: top;
+}
+
+.signature-box {
+    min-height: 140px; /* forces same height */
+}
+
+.left {
+    text-align: left;
+}
+
+.right {
+    text-align: right;
+}
+
+.right-text {
+    text-align: right;
+    display: inline-block;
+    width: 100%;
+}
+
+.line {
+    border-top: 1px solid #000;
+    width: 200px;
+    margin-bottom: 8px;
+    margin-left: auto; /* pushes line to right side */
+}
+
+/* ================= FOOTER ================= */
+.footer {
+    position: fixed;
+    bottom: 10mm;
+    left: 0;
+    right: 0;
+
+    font-size: 10px;
+    border-top: 1px solid #ccc;
+    padding-top: 6px;
+}
+
+.footer-table {
+    width: 100%;
+}
+
+.footer-left {
+    width: 70%;
+}
+
+.footer-right {
+    text-align: right;
+    width: 30%;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- ✅ LETTERHEAD BACKGROUND -->
+<div class="letterhead-bg"></div>
+
+<!-- CONTENT -->
+<div class="container">
+
+    <div class="title">Revision of Contract</div>
+
+    <div style="text-align:right;">
+        {{contract.date}}
+    </div>
+
+    <p>To</p>
+
+    <table>
+        <tr>
+            <td width="120">Name</td>
+            <td>: {{contract.name}}</td>
+        </tr>
+        <tr>
+            <td>Designation</td>
+            <td>: {{contract.designation}}</td>
+        </tr>
+        <tr>
+            <td>Address</td>
+            <td>
+                BRAC Institute of Educational Development (BRAC IED)<br>
+                Niketon, Gulshan-1, Dhaka - 1212
+            </td>
+        </tr>
+    </table>
+
+    <p>Dear {{contract.name}},</p>
+
+    <p>
+        This is to inform you that BRAC Institute of Educational Development, BRAC University (BRAC IED)
+        has decided to renew your contract as {% if contract.new_designation %}{{contract.new_designation}}{% else %}{{contract.designation}}{% endif %} starting from {{contract.start_date}}.The proceedings of your attachment to the programme are mentioned below-
+    </p>
+
+    <ol>
+        <li>Your contract is extended up to {{contract.end_date}}.</li>
+        <li>Your monthly salary will be BDT {{contract.salary|indian_number}}.</li>
+        <li>All other terms and conditions of your appointment will remain same.</li>
+        <li>The contract can be renewed, extended or amended based on mutual agreement and performance.</li>
+        <li>You are advised to abide by the rules and procedures of the institute. </li>
+        <li>Income tax on salary & benefit will be deducted at source if applicable.</li>
+    </ol>
+
+<table class="signature">
+    <tr>
+        <td class="signature-box left">
+            On behalf of BRAC IED
+            <br><br><br><br>
+
+            <strong>Dr. Erum Mariam</strong><br>
+            Executive Director
+        </td>
+
+        <td class="signature-box right">
+            <br><br><br><br>
+            <div class="line"></div>
+
+            <div class="right-text">
+                <strong>{{contract.name}}</strong><br>
+                {{contract.designation}}<br>
+                PIN: {{contract.pin}}
+            </div>
+        </td>
+    </tr>
+</table>
+
+</div>
+
+<!-- FOOTER -->
+
+
+</body>
+</html>

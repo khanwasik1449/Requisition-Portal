@@ -1,0 +1,267 @@
+{% extends "contracts/base.html" %}
+
+{% block content %}
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --c-bg: #F7F6F3;
+    --c-surface: #FFFFFF;
+    --c-border: rgba(0,0,0,0.08);
+    --c-border-strong: rgba(0,0,0,0.15);
+    --c-text: #1A1917;
+    --c-muted: #6B6A66;
+    --c-hint: #A8A79F;
+    --c-accent: #2563EB;
+    --c-accent-light: #EFF4FF;
+    --c-success: #16A34A;
+    --c-success-light: #F0FDF4;
+    --c-danger: #DC2626;
+    --c-danger-light: #FEF2F2;
+    --c-amber: #D97706;
+    --c-amber-light: #FFFBEB;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body { font-family: 'DM Sans', sans-serif; background: var(--c-bg); color: var(--c-text); }
+
+  .ps-wrapper { max-width: 800px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+  .ps-header { margin-bottom: 2rem; }
+  .ps-header h1 { font-size: 1.6rem; font-weight: 600; }
+  .ps-header p { font-size: 0.875rem; color: var(--c-muted); margin-top: 4px; }
+
+  .ps-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .ps-card-body { padding: 1.75rem; }
+
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-hint); margin-bottom: 1.25rem; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+
+  @media (max-width: 600px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 13px; font-weight: 500; color: var(--c-muted); }
+  .field input, .field select {
+    height: 40px; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm);
+    padding: 0 12px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+    background: var(--c-bg); outline: none; width: 100%;
+  }
+  .field input:focus, .field select:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); background: #fff; }
+
+  .divider { height: 1px; background: var(--c-border); margin: 1.5rem 0; }
+
+  .salary-box { background: var(--c-bg); border: 1px solid var(--c-border); border-radius: var(--radius-sm); padding: 14px 16px; text-align: center; }
+  .salary-box .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-hint); margin-bottom: 4px; }
+  .salary-box .value { font-size: 18px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .salary-box.highlight { background: var(--c-accent-light); border-color: var(--c-accent); }
+  .salary-box.highlight .value { color: var(--c-accent); }
+  .salary-box.success { background: var(--c-success-light); border-color: var(--c-success); }
+  .salary-box.success .value { color: var(--c-success); }
+  .salary-box.danger { background: var(--c-danger-light); border-color: var(--c-danger); }
+  .salary-box.danger .value { color: var(--c-danger); }
+  .salary-box.info { background: #EFF6FF; border-color: #3B82F6; }
+  .salary-box.info .value { color: #3B82F6; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.18s; text-decoration: none; }
+  .btn-success { background: var(--c-success); color: #fff; border-color: var(--c-success); }
+  .btn-success:hover { background: #15803D; transform: translateY(-1px); }
+
+  .alert-box { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 14px; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px; }
+  .alert-success { background: var(--c-success-light); color: var(--c-success); border: 1px solid rgba(22,163,74,0.15); }
+
+  @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .success-state h2 { font-size: 1.25rem; font-weight: 600; }
+  .success-state p { font-size: 14px; color: var(--c-muted); margin-bottom: 1.75rem; }
+  .btn-group { display: flex; gap: 10px; justify-content: center; }
+</style>
+
+<div class="ps-wrapper">
+  <div class="ps-header">
+    <h1>Create Payslip</h1>
+    <p>Enter employee details and salary information.</p>
+  </div>
+
+  {% if created_payslip %}
+  <div class="alert-box alert-success">✓ Payslip created successfully!</div>
+  {% endif %}
+
+  <form method="post" id="payslipForm">
+    {% csrf_token %}
+
+    <div class="ps-card">
+      <div class="ps-card-body">
+        <div class="section-label">Employee Information</div>
+        <div class="grid-3">
+          <div class="field">
+            <label>PIN <span style="color:var(--c-danger)">*</span></label>
+            <input type="text" name="pin" id="pin" placeholder="e.g. EMP-001" required>
+          </div>
+          <div class="field">
+            <label>Name <span style="color:var(--c-danger)">*</span></label>
+            <input type="text" name="name" id="name" placeholder="Full name" required>
+          </div>
+          <div class="field">
+            <label>Designation <span style="color:var(--c-danger)">*</span></label>
+            <input type="text" name="designation" id="designation" placeholder="Job title" required>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-label">Period</div>
+        <div class="grid-4">
+          <div class="field">
+            <label>Month <span style="color:var(--c-danger)">*</span></label>
+            <select name="month" id="month" required>
+              <option value="">Select</option>
+              <option value="January">January</option>
+              <option value="February">February</option>
+              <option value="March">March</option>
+              <option value="April">April</option>
+              <option value="May">May</option>
+              <option value="June">June</option>
+              <option value="July">July</option>
+              <option value="August">August</option>
+              <option value="September">September</option>
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Year <span style="color:var(--c-danger)">*</span></label>
+            <input type="number" name="year" id="year" value="2026" required>
+          </div>
+          <div class="field">
+            <label>Project</label>
+            <input type="text" name="project" id="project" value="BUIED">
+          </div>
+          <div class="field">
+            <label>Branch</label>
+            <input type="text" name="branch" id="branch" value="Niketon Housing, Gulshan">
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-label">Salary (Enter total salary - breakdown auto-calculated)</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Total Salary (BDT) <span style="color:var(--c-danger)">*</span></label>
+            <input type="number" name="basic_salary" id="basicSalary" placeholder="0" step="0.01" required oninput="calculate()">
+            <small style="color:var(--c-hint)">Auto: Basic 50%, House Rent 30%, Medical 10%, Conveyance 10%</small>
+          </div>
+        </div>
+
+        <div class="grid-4 mt-3">
+          <div class="salary-box info">
+            <div class="label">Basic (50%)</div>
+            <div class="value" id="basicPreview">0.00</div>
+          </div>
+          <div class="salary-box info">
+            <div class="label">House Rent (30%)</div>
+            <div class="value" id="houseRentPreview">0.00</div>
+          </div>
+          <div class="salary-box info">
+            <div class="label">Medical (10%)</div>
+            <div class="value" id="medicalPreview">0.00</div>
+          </div>
+          <div class="salary-box info">
+            <div class="label">Conveyance (10%)</div>
+            <div class="value" id="conveyancePreview">0.00</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-label">Deductions (Manual Input)</div>
+        <div class="grid-3">
+          <div class="field">
+            <label>Transport</label>
+            <input type="number" name="transport" id="transport" value="0" step="0.01" oninput="calculate()">
+          </div>
+          <div class="field">
+            <label>Income Tax</label>
+            <input type="number" name="income_tax" id="incomeTax" value="0" step="0.01" oninput="calculate()">
+          </div>
+          <div class="field">
+            <label>Other Deduction</label>
+            <input type="number" name="other_deduction" id="otherDeduction" value="0" step="0.01" oninput="calculate()">
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="grid-3">
+          <div class="salary-box highlight">
+            <div class="label">Total Salary</div>
+            <div class="value" id="totalSalaryPreview">0.00</div>
+          </div>
+          <div class="salary-box danger">
+            <div class="label">Total Deduction</div>
+            <div class="value" id="totalDeductionPreview">0.00</div>
+          </div>
+          <div class="salary-box success">
+            <div class="label">Net Pay</div>
+            <div class="value" id="netPayPreview">0.00</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="padding: 1.25rem 1.75rem; border-top: 1px solid var(--c-border); background: var(--c-bg);">
+        <button type="submit" class="btn btn-success" style="width: 100%; justify-content: center; padding: 12px;">
+          Create Payslip
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if created_payslip %}
+<div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)">
+  <div style="background:#fff;padding:2.5rem 2rem;border-radius:16px;min-width:360px;max-width:440px;text-align:center;animation:popIn .35s cubic-bezier(.175,.885,.32,1.275)">
+    <div style="width:60px;height:60px;border-radius:50%;background:#F0FDF4;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:24px">✓</div>
+    <h3 style="font-weight:600;font-size:1.2rem;margin-bottom:6px">Payslip created</h3>
+    <p style="font-size:14px;color:#6B6A66;margin-bottom:1.75rem">Successfully created for <strong>{{ created_payslip.name }}</strong></p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <a href="{% url 'payslip:generate_payslip_pdf' created_payslip.id %}" style="display:block;padding:10px 20px;background:#2563EB;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">Download PDF</a>
+      <button onclick="window.location.href=window.location.pathname" style="padding:10px 20px;background:transparent;border:1px solid rgba(0,0,0,0.12);border-radius:8px;color:#6B6A66;font-size:14px;cursor:pointer">Create another</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function calculate() {
+  const totalSalary = parseFloat(document.getElementById('basicSalary').value) || 0;
+  const transport = parseFloat(document.getElementById('transport').value) || 0;
+  const incomeTax = parseFloat(document.getElementById('incomeTax').value) || 0;
+  const otherDeduction = parseFloat(document.getElementById('otherDeduction').value) || 0;
+
+  const basic = totalSalary * 0.50;
+  const houseRent = totalSalary * 0.30;
+  const medical = totalSalary * 0.10;
+  const conveyance = totalSalary * 0.10;
+  const totalDeduction = transport + incomeTax + otherDeduction;
+  const netPay = totalSalary - totalDeduction;
+
+  document.getElementById('basicPreview').textContent = basic.toLocaleString('en-BD', {minimumFractionDigits: 2});
+  document.getElementById('houseRentPreview').textContent = houseRent.toLocaleString('en-BD', {minimumFractionDigits: 2});
+  document.getElementById('medicalPreview').textContent = medical.toLocaleString('en-BD', {minimumFractionDigits: 2});
+  document.getElementById('conveyancePreview').textContent = conveyance.toLocaleString('en-BD', {minimumFractionDigits: 2});
+  document.getElementById('totalSalaryPreview').textContent = totalSalary.toLocaleString('en-BD', {minimumFractionDigits: 2});
+  document.getElementById('totalDeductionPreview').textContent = totalDeduction.toLocaleString('en-BD', {minimumFractionDigits: 2});
+  document.getElementById('netPayPreview').textContent = netPay.toLocaleString('en-BD', {minimumFractionDigits: 2});
+}
+</script>
+
+{% endblock %}

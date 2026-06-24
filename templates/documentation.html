@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Documentation — Requisition Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root{ --primary:#2563EB; --sidebar:#0F172A; --muted:#64748B; --border:#E2E8F0; --bg:#F8FAFC; }
+        @media print{ .download-btn,.header-bar .container a,.footer a{ display:none!important; } body{ font-size:11pt; } .container{ max-width:100%; padding:20px; } h2{ page-break-after:avoid; } h3{ page-break-after:avoid; } table{ font-size:9pt; } .toc{ break-inside:avoid; } }
+        *{ margin:0; padding:0; box-sizing:border-box; }
+        body{ font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--bg); color:#0F172A; line-height:1.7; }
+        .container{ max-width:900px; margin:0 auto; padding:40px 24px; }
+        h1{ font-size:2rem; font-weight:800; letter-spacing:-.03em; margin-bottom:4px; }
+        h2{ font-size:1.4rem; font-weight:700; margin-top:40px; margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--border); }
+        h3{ font-size:1.1rem; font-weight:600; margin-top:28px; margin-bottom:10px; }
+        p{ margin-bottom:12px; color:#374151; }
+        ul,ol{ margin-bottom:16px; padding-left:24px; }
+        li{ margin-bottom:6px; }
+        code{ background:#F1F5F9; padding:2px 8px; border-radius:6px; font-size:.85rem; color:var(--primary); }
+        table{ width:100%; border-collapse:collapse; margin:16px 0 24px; font-size:.9rem; }
+        th,td{ padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); }
+        th{ background:#F8FAFC; font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+        .badge{ display:inline-block; padding:2px 10px; border-radius:20px; font-size:.75rem; font-weight:600; }
+        .badge-blue{ background:#EFF6FF; color:#1E40AF; }
+        .badge-green{ background:#ECFDF5; color:#065F46; }
+        .badge-yellow{ background:#FFFBEB; color:#92400E; }
+        .toc{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:24px; margin:24px 0; }
+        .toc a{ color:var(--primary); text-decoration:none; display:block; padding:4px 0; font-size:.9rem; }
+        .toc a:hover{ text-decoration:underline; }
+        .header-bar{ background:var(--sidebar); color:#fff; padding:20px 0; margin-bottom:0; }
+        .header-bar h1{ color:#fff; }
+        .header-bar p{ color:#94A3B8; margin:0; }
+        .footer{ text-align:center; padding:32px 0; color:var(--muted); font-size:.85rem; border-top:1px solid var(--border); margin-top:48px; }
+        .download-btn{ display:inline-flex; align-items:center; gap:8px; background:var(--primary); color:#fff; padding:10px 24px; border-radius:10px; text-decoration:none; font-weight:600; font-size:.9rem; margin-bottom:24px; }
+        .download-btn:hover{ background:#1D4ED8; color:#fff; }
+    </style>
+</head>
+<body>
+
+<div class="header-bar">
+    <div class="container">
+        <h1>📖 Requisition Portal — System Documentation</h1>
+        <p>Enterprise Resource Management System &bull; Version 1.0</p>
+    </div>
+</div>
+
+<div class="container">
+
+<a href="?download=1" class="download-btn">⬇ Download Documentation</a>
+
+<div class="toc">
+    <strong style="font-size:.9rem;">Table of Contents</strong>
+    <a href="#overview">1. System Overview</a>
+    <a href="#tech">2. Technology Stack</a>
+    <a href="#modules">3. System Modules</a>
+    <a href="#roles">4. User Roles & Permissions</a>
+    <a href="#workflow">5. Requisition Workflow</a>
+    <a href="#hr">6. HR Module</a>
+    <a href="#notifications">7. Notifications</a>
+    <a href="#audit">8. Audit Log</a>
+    <a href="#deployment">9. Deployment</a>
+    <a href="#urls">10. URL Reference</a>
+</div>
+
+<h2 id="overview">1. System Overview</h2>
+<p>
+    The <strong>Requisition Portal</strong> is a Django-based enterprise web application that digitizes and streamlines internal resource requests — ICT equipment, transport, and office supplies — through a structured two-level approval workflow. It also integrates an <strong>HR module</strong> for contract generation, employee management, and payslip processing.
+</p>
+<p><strong>Key capabilities:</strong></p>
+<ul>
+    <li>Three requisition types with independent approval chains</li>
+    <li>Role-based access control (requester, supervisor, department admin, full admin)</li>
+    <li>Email-driven approval workflow with signed action links</li>
+    <li>Public payslip request submission</li>
+    <li>HR contract generation with WeasyPrint PDF rendering</li>
+    <li>Full audit trail of all status changes</li>
+    <li>Self-service account registration with admin approval</li>
+</ul>
+
+<h2 id="tech">2. Technology Stack</h2>
+<table>
+    <tr><th>Layer</th><th>Technology</th></tr>
+    <tr><td>Backend</td><td>Django 6.0 (Python 3.x)</td></tr>
+    <tr><td>Database</td><td>SQLite (development) / PostgreSQL (production-ready)</td></tr>
+    <tr><td>Frontend</td><td>Bootstrap 5.3, Custom CSS, Inter Font</td></tr>
+    <tr><td>Email</td><td>SMTP via django.core.mail</td></tr>
+    <tr><td>Async Tasks</td><td>django-q2 (for bulk email)</td></tr>
+    <tr><td>PDF Generation</td><td>WeasyPrint (contracts, payslips)</td></tr>
+    <tr><td>Web Server</td><td>nginx → gunicorn (production)</td></tr>
+    <tr><td>Process Manager</td><td>systemd (auto-restart service)</td></tr>
+</table>
+
+<h2 id="modules">3. System Modules</h2>
+
+<h3>3.1 ICT Requisition</h3>
+<p>Handles requests for IT equipment, software licenses, and accessories. Features include supervisor selection, multi-item equipment lists, and specification details.</p>
+<p><strong>Models:</strong> <code>ICTRequisition</code></p>
+
+<h3>3.2 Transport Requisition</h3>
+<p>Manages vehicle transport requests for official trips. Supports vehicle type selection, pick-up/drop-off scheduling, passenger count, driver assignment, and Excel report export.</p>
+<p><strong>Models:</strong> <code>TransportRequisition</code>, <code>Driver</code></p>
+
+<h3>3.3 Internal Requisition</h3>
+<p>Covers office supplies, stationery, and internal resources. Supports multi-item requests with quantities and purposes per item.</p>
+<p><strong>Models:</strong> <code>InternalRequisition</code>, <code>InternalEquipmentItem</code></p>
+
+<h3>3.4 Accounts & Authentication</h3>
+<p>Custom user model with role-based permissions. Supports self-registration (admin must approve), user management, and role assignment.</p>
+<p><strong>Models:</strong> <code>User</code> (extends <code>AbstractUser</code>)</p>
+
+<h3>3.5 Contracts (HR)</h3>
+<p>Full contract lifecycle: create, bulk upload, email delivery, PDF generation. Includes email configuration per department, bulk email status tracking, and a system manual.</p>
+
+<h3>3.6 Employees (HR)</h3>
+<p>Employee database with CRUD operations, salary tracking, and CSV import.</p>
+<p><strong>Models:</strong> <code>Employee</code>, <code>EmployeeSalary</code></p>
+
+<h3>3.7 Payslip (HR)</h3>
+<p>Payslip creation, PDF generation, bulk upload, and a public request form where non-logged-in users can submit payslip requests by name, PIN, and month selection.</p>
+<p><strong>Models:</strong> <code>Payslip</code>, <code>PayslipRequest</code></p>
+
+<h3>3.8 Notifications</h3>
+<p>Per-department email configuration, email logging with retry capability, signed action tokens for one-click approve/reject from email, and requisition tracking page.</p>
+<p><strong>Models:</strong> <code>EmailConfig</code>, <code>EmailLog</code>, <code>AuditLog</code></p>
+
+<h2 id="roles">4. User Roles & Permissions</h2>
+<table>
+    <tr><th>Role</th><th>Key</th><th>Permissions</th></tr>
+    <tr><td>Requester</td><td><code>requester</code></td><td>Submit requisitions, view own submissions</td></tr>
+    <tr><td>Supervisor</td><td><code>supervisor</code></td><td>First-level approval for all types</td></tr>
+    <tr><td>ICT Approver</td><td><code>ict_approver</code></td><td>Second-level approval for all types</td></tr>
+    <tr><td>ICT Admin</td><td><code>ict_admin</code></td><td>Manage ICT requisitions, first & second approver</td></tr>
+    <tr><td>Transport Admin</td><td><code>transport_admin</code></td><td>Manage transport requisitions, driver assignment, reports</td></tr>
+    <tr><td>Internal Admin</td><td><code>internal_admin</code></td><td>Manage internal requisitions</td></tr>
+    <tr><td>HR Admin</td><td><code>hr_admin</code></td><td>Full HR module access (contracts, employees, payslips)</td></tr>
+    <tr><td>Admin</td><td><code>admin</code></td><td>Full system access, user management, email config, audit log</td></tr>
+</table>
+<p><strong>Dashboard visibility</strong> adapts per role: departmental admins see only their module's stats; full admin sees all; requesters see a selection page; HR admin is redirected to the HR dashboard.</p>
+
+<h2 id="workflow">5. Requisition Workflow</h2>
+
+<h3>Standard Two-Level Approval</h3>
+<ol>
+    <li><strong>Submit</strong> — Requester fills and submits the form (authentication required)</li>
+    <li><strong>First Approval</strong> — Supervisor (or department admin) receives an email with Approve/Reject links. Approving moves status to <code>Pending Second Approval</code>.</li>
+    <li><strong>Second Approval</strong> — ICT Approver (or admin) receives notification. Approving marks the requisition as <code>Approved</code>.</li>
+    <li><strong>Rejection</strong> — At any step, the approver can reject with a reason. The requester receives a notification email.</li>
+</ol>
+<p><strong>Email links</strong> use signed tokens (7-day expiry) for one-click action without logging in.</p>
+
+<h3>ICT-Specific Flow</h3>
+<p>ICT requisitions allow selecting a specific <strong>supervisor</strong> as the first approver. If selected, the approval request goes directly to that supervisor instead of broadcasting to all supervisors.</p>
+
+<h3>Transport-Specific Flow</h3>
+<p>After approval, an admin or transport admin can <strong>assign a driver</strong> (name, car number, cell). The requester receives a notification with driver details.</p>
+
+<h2 id="hr">6. HR Module</h2>
+<p>The HR module is accessible at <code>/hr/contracts/</code>, <code>/hr/employees/</code>, and <code>/hr/payslip/</code>. It uses its own base template with a dedicated sidebar.</p>
+
+<h3>Contracts</h3>
+<ul>
+    <li>Create individual contracts with full employee details, salary, and terms</li>
+    <li>Bulk upload contracts from CSV</li>
+    <li>Generate and download contract PDFs</li>
+    <li>Send contracts via email with CC functionality</li>
+    <li>Bulk email with status tracking per recipient</li>
+    <li>Per-department email configuration (SMTP settings)</li>
+</ul>
+
+<h3>Employees</h3>
+<ul>
+    <li>Employee directory with search and detail view</li>
+    <li>Salary records per employee</li>
+    <li>CSV import for bulk employee data</li>
+    <li>API endpoint: <code>/hr/employees/api/&lt;pin&gt;/</code> (used by contract form for auto-fill)</li>
+</ul>
+
+<h3>Payslip</h3>
+<ul>
+    <li>Create individual payslips with earnings and deductions</li>
+    <li>Bulk upload payslip data</li>
+    <li>PDF generation for each payslip</li>
+    <li><strong>Payslip Request</strong> — Public form at <code>/hr/payslip/request/</code> where anyone can submit a payslip request by name, PIN, and selected months. HR admin reviews and processes these at <code>/hr/payslip/requests/</code>.</li>
+</ul>
+
+<h2 id="notifications">7. Notifications</h2>
+
+<h3>Email Configuration</h3>
+<p>Each department (ICT, Transport, Internal) can have its own SMTP configuration stored in the database. Admins can enable/disable per-department email.</p>
+
+<h3>Email Logs</h3>
+<p>All sent emails are logged with status (sent/failed). Failed emails can be retried individually or in bulk. The log shows department, email type, recipient, subject, and any error messages.</p>
+
+<h3>Action Tokens</h3>
+<p>Approval and rejection links in emails contain cryptographically signed tokens with the requisition ID, action, and approver ID. Tokens expire after 7 days.</p>
+
+<h3>Tracking Page</h3>
+<p>Each requisition has a public tracking page (linked from notification emails) showing current status without requiring login.</p>
+
+<h2 id="audit">8. Audit Log</h2>
+<p>All status changes on requisitions are recorded in the <code>AuditLog</code> model:</p>
+<ul>
+    <li><strong>Created</strong> — When a requisition is submitted</li>
+    <li><strong>Pending Second Approval</strong> — After first-level approval</li>
+    <li><strong>Approved</strong> — After second-level approval (fully approved)</li>
+    <li><strong>Rejected</strong> — When rejected at any stage (includes rejection reason)</li>
+</ul>
+<p>Each entry records: requisition type, request number, action, user who performed it, timestamp, and optional details. Admins can view all logs at <code>/notifications/audit-log/</code>; regular users see only actions on their own requisitions.</p>
+
+<h2 id="deployment">9. Deployment</h2>
+
+<h3>Production Setup</h3>
+<ul>
+    <li><strong>Web Server:</strong> nginx on port 80, reverse proxy to gunicorn</li>
+    <li><strong>Gunicorn:</strong> 3 workers on <code>127.0.0.1:8001</code></li>
+    <li><strong>Service:</strong> systemd unit <code>requisition_portal.service</code>, auto-restarts on failure and boot</li>
+    <li><strong>Static Files:</strong> served directly by nginx from <code>STATIC_ROOT</code></li>
+</ul>
+
+<h3>Required System Libraries</h3>
+<ul>
+    <li>Python 3.x + pip</li>
+    <li>libpango, libcairo, libgdk-pixbuf2.0-dev (for WeasyPrint PDF generation)</li>
+</ul>
+
+<h3>Environment Variables</h3>
+<p>Key settings in <code>settings.py</code>:</p>
+<ul>
+    <li><code>AUTH_USER_MODEL = 'accounts.User'</code></li>
+    <li><code>LOGIN_URL = '/accounts/login/'</code></li>
+    <li><code>LOGIN_REDIRECT_URL = 'dashboard'</code></li>
+    <li><code>Q_CLUSTER</code> configured for django-q2 async tasks</li>
+</ul>
+
+<h2 id="urls">10. URL Reference</h2>
+<table>
+    <tr><th>Path</th><th>Description</th></tr>
+    <tr><td><code>/</code></td><td>Public home page (cards for requisitions & payslip request)</td></tr>
+    <tr><td><code>/dashboard/</code></td><td>Role-adaptive dashboard</td></tr>
+    <tr><td><code>/my-requisitions/</code></td><td>Unified view of user's own requisitions</td></tr>
+    <tr><td><code>/accounts/signup/</code></td><td>Self-registration (pending admin approval)</td></tr>
+    <tr><td><code>/accounts/login/</code></td><td>Login</td></tr>
+    <tr><td><code>/accounts/users/</code></td><td>User management (admin only)</td></tr>
+    <tr><td><code>/ict/</code></td><td>ICT requisition list + create + detail + approve + reject</td></tr>
+    <tr><td><code>/transport/</code></td><td>Transport requisition list + create + detail + approve + reject + report + excel</td></tr>
+    <tr><td><code>/internal/</code></td><td>Internal requisition list + create + detail + approve + reject</td></tr>
+    <tr><td><code>/notifications/audit-log/</code></td><td>Audit log (admin: full; others: own)</td></tr>
+    <tr><td><code>/notifications/email-config/</code></td><td>Email configuration (admin only)</td></tr>
+    <tr><td><code>/notifications/email-logs/</code></td><td>Email delivery logs (admin only)</td></tr>
+    <tr><td><code>/notifications/track/&lt;type&gt;/&lt;id&gt;/</code></td><td>Public requisition tracking page</td></tr>
+    <tr><td><code>/hr/contracts/</code></td><td>HR contract management</td></tr>
+    <tr><td><code>/hr/employees/</code></td><td>HR employee management</td></tr>
+    <tr><td><code>/hr/payslip/</code></td><td>HR payslip management</td></tr>
+    <tr><td><code>/hr/payslip/request/</code></td><td>Public payslip request form</td></tr>
+</table>
+
+<div class="footer">
+    Requisition Portal &copy; {% now "Y" %} &bull; Built with Django 6.0
+</div>
+
+</div>
+</body>
+</html>
