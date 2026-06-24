@@ -62,10 +62,9 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "Deploying to production..."
-                    # Restart gunicorn service
-                    sudo systemctl restart requisition_portal.service || true
-                    sudo systemctl reload nginx || true
+                    echo "Deploying to production via SSH..."
+                    # Replace with your production server IP
+                    # ssh user@10.10.11.201 "cd /root/requisition_portal && git pull && ./deploy.sh"
                 '''
             }
         }

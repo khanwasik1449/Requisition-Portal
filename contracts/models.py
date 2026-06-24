@@ -45,7 +45,7 @@ class EmailConfig(models.Model):
     email_use_tls = models.BooleanField(default=True)
     email_host_user = models.EmailField()
     email_host_password = models.CharField(max_length=500)
-    default_from_email = models.CharField(max_length=500, default='bracu.ied@bracu.ac.bd')
+    default_from_email = models.CharField(max_length=500, default='')
 
     class Meta:
         verbose_name = 'Email Configuration'

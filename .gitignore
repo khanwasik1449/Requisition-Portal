@@ -27,7 +27,9 @@ static/
 
 # Environment
 .env
-*.env.local
+.env.local
+.env.production
+local_settings.py
 
 # Deployment
 *.pid
@@ -39,3 +41,4 @@ django_q.db
 
 # OS
 Thumbs.db
+!.env.example
