@@ -42,3 +42,7 @@ django_q.db
 # OS
 Thumbs.db
 !.env.example
+
+# Sensitive directories - keep locally only
+Templates/
+Data/
