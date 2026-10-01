@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block page_title %}{% if is_new %}Add field{% else %}Edit {{ field.label }}{% endif %} — {{ module.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'portal_config:module_list' %}">Configuration</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'portal_config:field_list' module.key %}">{{ module.name }} fields</a></li>
+                <li class="breadcrumb-item active">{% if is_new %}Add field{% else %}Edit{% endif %}</li>
+            </ol>
+        </nav>
+
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-pencil-square" style="color:#d97706;"></i>
+                {% if is_new %}Add a field{% else %}Edit field{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                        {% for error in form.non_field_errors %}
+                        <div class="alert alert-danger small">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Label shown to the user</label>
+                            {{ form.label }}
+                            {% for e in form.label.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Key</label>
+                            {{ form.key }}
+                            {% for e in form.key.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Field type</label>
+                            {{ form.field_type }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Step</label>
+                            {{ form.step }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Order within step</label>
+                            {{ form.order }}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Help text</label>
+                            {{ form.help_text }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Placeholder</label>
+                            {{ form.placeholder }}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Choices (dropdown and radio only)</label>
+                            {{ form.options }}
+                            <div class="form-text">One per line, written as <code>value|Label shown to the user</code>.</div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check">
+                                {{ form.required }}
+                                <label class="form-check-label" for="{{ form.required.id_for_label }}">Required</label>
+                            </div>
+                            <div class="form-check">
+                                {{ form.is_system }}
+                                <label class="form-check-label" for="{{ form.is_system.id_for_label }}">
+                                    Stored in a database column
+                                </label>
+                            </div>
+                            {% for e in form.is_system.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                            <div class="form-check">
+                                {{ form.visible_to_requester }}
+                                <label class="form-check-label" for="{{ form.visible_to_requester.id_for_label }}">Visible on the form</label>
+                            </div>
+                            <div class="form-check">
+                                {{ form.show_in_review }}
+                                <label class="form-check-label" for="{{ form.show_in_review.id_for_label }}">Show on the review screen</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Save field
+                        </button>
+                        <a href="{% url 'portal_config:field_list' module.key %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

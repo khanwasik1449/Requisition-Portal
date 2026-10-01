@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block page_title %}Rooms — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="page-title mb-1">Rooms</h2>
+        <p class="text-muted mb-0 small">Meeting rooms available for booking</p>
+    </div>
+    {% if is_hr_admin %}
+    <a href="{% url 'meetspace:room_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Add Room
+    </a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Room</th>
+                    <th>Floor</th>
+                    <th>Capacity</th>
+                    <th>Approved bookings</th>
+                    <th>Status</th>
+                    {% if is_hr_admin %}<th class="text-end">Actions</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for room in rooms %}
+                <tr>
+                    <td class="fw-semibold">{{ room.room_number }}</td>
+                    <td>{{ room.floor }}</td>
+                    <td>{{ room.min_occupancy }}–{{ room.max_occupancy }}</td>
+                    <td>{{ room.booking_count }}</td>
+                    <td>
+                        {% if room.is_active %}
+                        <span class="badge bg-success">Available</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Retired</span>
+                        {% endif %}
+                    </td>
+                    {% if is_hr_admin %}
+                    <td class="text-end">
+                        <a href="{% url 'meetspace:room_edit' room.pk %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'meetspace:room_toggle' room.pk %}" class="btn btn-sm btn-outline-{% if room.is_active %}danger{% else %}success{% endif %}">
+                            {% if room.is_active %}Retire{% else %}Restore{% endif %}
+                        </a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No rooms configured.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

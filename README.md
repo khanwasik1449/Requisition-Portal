@@ -1,4 +1,4 @@
-# Requisition Portal
+# BRAC IED Central Portal
 
 Enterprise requisition management system with ICT, Transport, and Internal requisitions, plus HR module (contracts, employees, payslip) and self-registration with admin approval.
 
@@ -107,6 +107,83 @@ See `Jenkinsfile` for the full pipeline:
 | `DB_PASSWORD` | For PG | — | DB password |
 | `DB_HOST` | For PG | — | DB host |
 | `DB_PORT` | For PG | — | DB port |
+
+## Public Transport Requests
+
+The transport request form and status tracking are **open to anyone — no login
+required**. Approvals, reports and history remain staff-only.
+
+| URL | Access | Purpose |
+|---|---|---|
+| `/transport/create/` | **Public** | Submit a request; anonymous rows store `user = NULL` |
+| `/transport/track/` | **Public** | Look up your own requests by email |
+| `/transport/` | Login | All requests (role-scoped) |
+| `/transport/history/` | Admin / transport_admin | Every request plus its audit trail |
+| `/transport/report/` | Admin / transport_admin | Filtered summary + Excel export |
+
+**Email is the public tracking key.** `/transport/track/` matches
+`email_address__iexact` only, so it returns a requester's own rows and nothing
+else — it cannot be used to enumerate other people's requests.
+
+Public submissions bypass login, so the form validates every required field
+itself and returns HTTP 400 with messages instead of raising on missing input.
+`TransportRequisition.user` is nullable and uses `SET_NULL`, so deleting a user
+account never destroys a public request.
+
+## Enabling and Disabling Modules
+
+Functional modules are switched on/off with the `ENABLED_MODULES` list in
+`requisition_portal/settings.py`. Disabled modules are **unrouted and hidden**,
+but their apps stay installed and their tables and data are preserved — so a
+module can be switched back on at any time with no data loss.
+
+```python
+ENABLED_MODULES = ['transport']   # currently active
+ENABLED_MODULES = ['ict', 'transport', 'internal', 'hr']   # everything on
+```
+
+| Key | Covers |
+|---|---|
+| `ict` | ICT requisitions |
+| `transport` | Transport requisitions |
+| `internal` | Internal requisitions |
+| `hr` | HR — contracts, employees, payslip |
+
+`accounts` (users/roles) and `notifications` (approval emails, audit log) are
+core and always active — transport approvals depend on them.
+
+### Enabled vs. visible
+
+Two independent lists:
+
+- `ENABLED_MODULES` — what is **routed**. A module here has working URLs.
+- `VISIBLE_MODULES` — what is **shown** in the sidebar, landing page,
+  dashboard, selection page and "My Requisitions".
+
+This lets you park a module without switching it off. A module can stay
+enabled (URLs resolve, staff reach it by bookmark, data untouched) while being
+absent from the UI. Current state: everything enabled, only Transport visible.
+
+What happens when a module is **disabled** (`ENABLED_MODULES`):
+
+- Its URLs are not registered, so its routes return 404 and its named URLs
+  cannot be reversed
+- Signed approve/reject email links for that type are rejected
+
+What happens when a module is **hidden** (in `ENABLED_MODULES`, not in
+`VISIBLE_MODULES`):
+
+- No links anywhere in the UI, for any role
+- Dashboard counters and "My Requisitions" skip its requisition type
+- Its URLs still resolve for anyone who navigates directly
+
+In both cases rows in its tables are left untouched.
+
+After editing, restart the service:
+
+```bash
+sudo systemctl restart requisition_portal.service
+```
 
 ## Roles
 

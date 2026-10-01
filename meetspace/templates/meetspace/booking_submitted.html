@@ -1,0 +1,35 @@
+{% extends 'base_public.html' %}
+{% block page_title %}Booking Submitted — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <div class="mb-3" style="font-size:3rem;color:#16A34A;">
+        <i class="bi bi-check-circle-fill"></i>
+    </div>
+    <h2 class="pub-title mb-2">Booking Submitted</h2>
+    <p class="pub-sub mb-4">Your meeting room request has been received. The HR admin will review it.</p>
+
+    <div class="card mx-auto" style="max-width:520px;">
+        <div class="card-body text-start">
+            <table class="table table-sm align-middle mb-0">
+                <tbody>
+                    <tr><td class="text-muted" style="width:35%;">Meeting</td><td class="fw-semibold">{{ b.meeting_title }}</td></tr>
+                    <tr><td class="text-muted">Room</td><td>{{ b.room.room_number }} (Floor {{ b.room.floor }})</td></tr>
+                    <tr><td class="text-muted">Date</td><td>{{ b.date|date:"M d, Y" }}</td></tr>
+                    <tr><td class="text-muted">Time</td><td>{{ b.start_time|time:"H:i" }} – {{ b.end_time|time:"H:i" }}</td></tr>
+                    <tr><td class="text-muted">Status</td><td><span class="badge bg-warning text-dark">{{ b.get_status_display }}</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-center mt-4">
+        <a href="{% url 'meetspace:track' %}" class="pub-btn pub-btn-primary">
+            <i class="bi bi-search me-1"></i> Track this booking
+        </a>
+        <a href="{% url 'meetspace:booking_create' %}" class="pub-btn pub-btn-outline">
+            <i class="bi bi-plus-lg me-1"></i> Book another room
+        </a>
+    </div>
+</div>
+{% endblock %}

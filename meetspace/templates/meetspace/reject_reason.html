@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block page_title %}Reject Booking — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-x-circle me-1"></i> Reject this booking
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">{{ b.meeting_title }} — Room {{ b.room.room_number }} on {{ b.date }}</p>
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Reason <span class="text-danger">*</span></label>
+                        <textarea name="reason" rows="3" class="form-control" required
+                                  placeholder="Why is this booking being rejected?"></textarea>
+                        <div class="form-text">The requester is emailed this reason.</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-check-lg me-1"></i> Reject booking
+                        </button>
+                        <a href="{% url 'meetspace:booking_detail' b.pk %}" class="btn btn-outline-secondary">Back</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

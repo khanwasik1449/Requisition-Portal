@@ -2,51 +2,195 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block page_title %}Requisition Portal{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block page_title %}BRAC IED Central Portal{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        body {
-            background: #f1f5f9;
-            font-family: system-ui, -apple-system, sans-serif;
+        /* Shared design tokens — mirrors base.html so public pages match the app. */
+        *{ margin:0; padding:0; box-sizing:border-box; }
+
+        :root{
+            --bg:#F8FAFC;
+            --sidebar:#0F172A;
+            --card:#FFFFFF;
+            --border:#E2E8F0;
+            --text:#0F172A;
+            --muted:#64748B;
+            --primary:#2563EB;
+            --primary-hover:#1D4ED8;
+            --success:#10B981;
+            --danger:#EF4444;
+            --warning:#F59E0B;
+            --radius:18px;
         }
-        .public-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+
+        body{
+            background:var(--bg);
+            font-family:'Inter',sans-serif;
+            color:var(--text);
+            -webkit-font-smoothing:antialiased;
         }
-        .public-header .brand {
-            font-weight: 700;
-            font-size: 1.1rem;
+
+        /* TOP BAR */
+        .pub-topbar{
+            background:#fff;
+            border-bottom:1px solid var(--border);
+            padding:14px 28px;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:16px;
+            position:sticky;
+            top:0;
+            z-index:100;
+            box-shadow:0 1px 3px rgba(15,23,42,.04);
         }
-        .public-header a { color: #fff; text-decoration: none; }
-        .content { padding: 24px; max-width: 1200px; margin: 0 auto; }
-        .alert-dismissible .btn-close { filter: none; }
+        .pub-brand{ display:flex; align-items:center; gap:12px; text-decoration:none; }
+        .pub-brand-icon img{
+            height:auto;
+            max-height:36px;
+            width:auto;
+        }
+        .pub-brand h1{ font-size:1.05rem; font-weight:700; color:var(--text); letter-spacing:-.02em; }
+        .pub-brand small{ font-size:.72rem; color:var(--muted); display:block; }
+        .pub-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+        .pub-btn{
+            display:inline-flex; align-items:center; gap:7px;
+            padding:9px 16px; border-radius:12px;
+            font-size:.85rem; font-weight:600;
+            text-decoration:none; border:1px solid transparent;
+            cursor:pointer; transition:.15s ease; white-space:nowrap;
+        }
+        .pub-btn-primary{ background:var(--primary); color:#fff; }
+        .pub-btn-primary:hover{ background:var(--primary-hover); color:#fff; }
+        .pub-btn-ghost{ background:#fff; color:var(--text); border-color:var(--border); }
+        .pub-btn-ghost:hover{ background:#F1F5F9; color:var(--text); }
+
+        /* LAYOUT */
+        .pub-wrap{ max-width:1080px; margin:0 auto; padding:28px 20px 48px; }
+        .pub-card{
+            background:var(--card);
+            border:1px solid var(--border);
+            border-radius:24px;
+            padding:26px;
+            box-shadow:0 10px 35px rgba(15,23,42,.04);
+        }
+
+        .pub-title{ font-size:1.45rem; font-weight:700; letter-spacing:-.02em; }
+        .pub-sub{ color:var(--muted); font-size:.92rem; }
+        .pub-section-label{
+            font-size:.72rem; font-weight:700; text-transform:uppercase;
+            letter-spacing:.06em; color:var(--muted); margin-bottom:10px;
+        }
+
+        /* Card / table overrides so Bootstrap defaults match the app */
+        .pub-card .card{
+            border:1px solid var(--border); border-radius:var(--radius);
+            box-shadow:none; background:#fff;
+        }
+        .pub-card .card-header{
+            background:#fff; border-bottom:1px solid var(--border);
+            font-weight:600; font-size:.92rem;
+        }
+        .pub-card .table{ margin-bottom:0; }
+        .pub-card .table thead th{
+            font-size:.72rem; font-weight:600; text-transform:uppercase;
+            letter-spacing:.04em; color:var(--muted);
+            border-bottom:2px solid var(--border); background:#F8FAFC;
+        }
+        .pub-card .table td{ vertical-align:middle; font-size:.9rem; }
+        .pub-card .form-label{ font-weight:600; font-size:.88rem; color:var(--text); }
+        .pub-card .form-control, .pub-card .form-select{
+            border-radius:12px; border-color:var(--border); padding:10px 13px; font-size:.92rem;
+        }
+        .pub-card .form-control:focus, .pub-card .form-select:focus{
+            border-color:var(--primary);
+            box-shadow:0 0 0 3px rgba(37,99,235,.12);
+        }
+
+        /* Reference number emphasis */
+        .ref-number{
+            font-size:2rem; font-weight:700; letter-spacing:2px; color:#D97706;
+        }
+
+        /* Step indicator */
+        .steps{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:22px; }
+        .step{ display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--muted); }
+        .step-dot{
+            width:26px; height:26px; border-radius:50%;
+            background:rgba(37,99,235,.10); color:var(--primary);
+            display:flex; align-items:center; justify-content:center;
+            font-size:.78rem; font-weight:700;
+        }
+        .step.active .step-dot{ background:var(--primary); color:#fff; }
+        .step.active{ color:var(--text); font-weight:600; }
+        .step-line{ flex:1; min-width:18px; height:2px; background:var(--border); }
+
+        .pub-footer{
+            text-align:center; color:var(--muted); font-size:.8rem;
+            padding:22px 20px 34px;
+        }
+
+        .app-message{ margin:0 20px 18px; }
+
+        @media (max-width:768px){
+            .pub-topbar{ padding:12px 16px; flex-wrap:wrap; }
+            .pub-wrap{ padding:18px 14px 36px; }
+            .pub-card{ padding:18px; border-radius:18px; }
+            .pub-title{ font-size:1.22rem; }
+            .ref-number{ font-size:1.5rem; letter-spacing:1px; }
+        }
     </style>
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <div class="public-header">
-        <a href="{% url 'home' %}" class="brand">
-            <i class="bi bi-building me-2"></i>Requisition Portal
+
+<div class="pub-topbar">
+    <a class="pub-brand" href="{% url 'home' %}">
+        <div class="pub-brand-icon">
+            <img src="http://bracied.com/wp-content/uploads/2025/10/BRAC-IED-Color_PNG.png" alt="BRAC IED" style="width:100%; height:100%; object-fit:contain;">
+        </div>
+        <div>
+            <h1>BRAC IED</h1>
+        </div>
+    </a>
+    <div class="pub-actions">
+        {% block public_actions %}
+        <a href="{% url 'transport_requisition:create' %}" class="pub-btn pub-btn-primary">
+            <i class="bi bi-truck"></i> Transport Request
         </a>
-        <a href="{% url 'login' %}" class="btn btn-sm btn-light">
-            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+        <a href="{% url 'transport_requisition:track' %}" class="pub-btn pub-btn-ghost">
+            <i class="bi bi-search"></i> Track
+        </a>
+        {% endblock %}
+        <a href="{% url 'login' %}" class="pub-btn pub-btn-ghost">
+            <i class="bi bi-box-arrow-in-right"></i> Staff Sign In
         </a>
     </div>
-    <div class="content">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2 small" role="alert">
-                    <i class="bi bi-check-circle me-1"></i> {{ message }}
-                    <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="app-message alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show py-2 small" role="alert">
+            <i class="bi bi-info-circle me-1"></i> {{ message }}
+            <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="pub-wrap">
+    <div class="pub-card">
         {% block content %}{% endblock %}
     </div>
+</div>
+
+<div class="pub-footer">
+    &copy; {% now "Y" %} BRAC Institute of Educational Development. All rights reserved.
+</div>
+
+{% block extra_js %}{% endblock %}
 </body>
 </html>

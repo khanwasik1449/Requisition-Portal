@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block page_title %}Tracking History{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+    <div>
+        <h2 class="page-title mb-1">Tracking History</h2>
+        <p class="text-muted mb-0">Every transport request with its full audit trail. Admin only.</p>
+    </div>
+    <a href="{% url 'transport_requisition:report' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-bar-chart me-1"></i> Report
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg"><div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">{{ counts.total }}</div></div></div>
+    <div class="col-6 col-lg"><div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value">{{ counts.pending }}</div></div></div>
+    <div class="col-6 col-lg"><div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value">{{ counts.approved }}</div></div></div>
+    <div class="col-6 col-lg"><div class="stat-card"><div class="stat-label">Rejected</div><div class="stat-value">{{ counts.rejected }}</div></div></div>
+    <div class="col-6 col-lg"><div class="stat-card"><div class="stat-label">Public Form</div><div class="stat-value">{{ counts.public }}</div></div></div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small">Search</label>
+                <input type="text" name="q" class="form-control" value="{{ search }}"
+                       placeholder="Email, name, request #, PIN, destination">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All</option>
+                    {% for stage in stages %}
+                    <option value="{{ stage.key }}" {% if status_filter == stage.key %}selected{% endif %}>{{ stage.name }}</option>
+                    {% endfor %}
+                    <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Declined</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">From</label>
+                <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">To</label>
+                <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Filter</button>
+                <a href="{% url 'transport_requisition:history' %}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if requisitions %}
+<p class="text-muted small">{{ requisitions|length }} result{{ requisitions|length|pluralize }}.</p>
+{% for r in requisitions %}
+<div class="card mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <a href="{% url 'transport_requisition:detail' r.pk %}" class="fw-semibold text-decoration-none">{{ r.request_number }}</a>
+            <span class="text-muted small">&mdash; {{ r.full_name }}</span>
+            {% if not r.user %}
+                <span class="badge bg-secondary ms-1">Public</span>
+            {% endif %}
+        </div>
+        {% include 'transport_requisition/_status_badge.html' with status=r.status variant='sm' %}
+    </div>
+    <div class="card-body">
+        <table class="table table-sm mb-3">
+            <tbody>
+                <tr><td class="text-muted" style="width:22%;">Email</td><td>{{ r.email_address }}</td>
+                    <td class="text-muted" style="width:22%;">Mobile</td><td>{{ r.mobile_number }}</td></tr>
+                <tr><td class="text-muted">Designation</td><td>{{ r.designation }}</td>
+                    <td class="text-muted">PIN</td><td>{{ r.pin }}</td></tr>
+                <tr><td class="text-muted">Destination</td><td>{{ r.destination }}</td>
+                    <td class="text-muted">Passengers</td><td>{{ r.num_passengers }}</td></tr>
+                <tr><td class="text-muted">Pick-up</td><td>{{ r.pick_up_date }} {{ r.pick_up_time }}</td>
+                    <td class="text-muted">Drop-off</td><td>{{ r.drop_off_date }} {{ r.drop_off_time }}</td></tr>
+                <tr><td class="text-muted">Reason</td><td colspan="3">{{ r.travelling_reason|truncatechars:120 }}</td></tr>
+            </tbody>
+        </table>
+
+        {% if r.trail %}
+        <div class="border-top pt-3">
+            <div class="small fw-semibold text-muted mb-2">AUDIT TRAIL</div>
+            <ul class="list-unstyled small mb-0">
+                {% for e in r.trail %}
+                <li class="mb-1">
+                    <span class="badge bg-light text-dark border me-2">{{ e.get_action_display }}</span>
+                    <span class="text-muted">{{ e.created_at|date:"d M Y, H:i" }}</span>
+                    &mdash; {{ e.performed_by.username|default:"Public submitter" }}
+                    {% if e.details %}<span class="text-muted">({{ e.details }})</span>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="alert alert-warning">No transport requests match these filters.</div>
+{% endif %}
+{% endblock %}

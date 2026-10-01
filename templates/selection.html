@@ -9,7 +9,16 @@
     </div>
 </div>
 
+{% if no_modules %}
+<div class="row justify-content-center">
+    <div class="col-12 text-center">
+        <div class="alert alert-warning">No requisition modules are currently enabled. Please contact your administrator.</div>
+    </div>
+</div>
+{% else %}
+
 <div class="row g-4 justify-content-center">
+    {% if 'ict' in visible_modules %}
     <div class="col-md-4">
         <a href="{% url 'ict_requisition:list' %}" class="text-decoration-none">
             <div class="selection-card">
@@ -20,6 +29,8 @@
             </div>
         </a>
     </div>
+    {% endif %}
+    {% if 'transport' in visible_modules %}
     <div class="col-md-4">
         <a href="{% url 'transport_requisition:list' %}" class="text-decoration-none">
             <div class="selection-card">
@@ -30,6 +41,8 @@
             </div>
         </a>
     </div>
+    {% endif %}
+    {% if 'internal' in visible_modules %}
     <div class="col-md-4">
         <a href="{% url 'internal_requisition:list' %}" class="text-decoration-none">
             <div class="selection-card">
@@ -40,5 +53,7 @@
             </div>
         </a>
     </div>
+    {% endif %}
 </div>
+{% endif %}
 {% endblock %}

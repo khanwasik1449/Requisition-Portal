@@ -1,0 +1,65 @@
+{% extends 'base_public.html' %}
+{% load portal_config_tags %}
+{% block page_title %}Track Booking — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="pub-title mb-1">Track Your Booking</h2>
+    <p class="pub-sub">Enter the email address you used when booking.</p>
+</div>
+
+<div class="mb-4">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <label class="form-label" for="email">Email address</label>
+        <div class="input-group">
+            <input type="email" name="email" id="email" class="form-control"
+                   value="{{ email|default:'' }}" placeholder="you@example.com" required>
+            <button type="submit" class="pub-btn pub-btn-primary">
+                <i class="bi bi-search"></i> Track
+            </button>
+        </div>
+        <div class="form-text">Only bookings submitted with this exact email address are shown.</div>
+    </form>
+</div>
+
+{% if searched %}
+    {% if bookings %}
+    <div class="alert alert-success d-flex align-items-center py-2 px-3 small mb-3">
+        <i class="bi bi-check-circle me-2"></i>
+        {{ bookings|length }} booking{{ bookings|length|pluralize }} found for
+        <strong>{{ email }}</strong>
+    </div>
+
+    {% for b in bookings %}
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-semibold">{{ b.meeting_title }}</span>
+            {% include 'transport_requisition/_status_badge.html' with status=b.status variant='sm' %}
+        </div>
+        <div class="card-body">
+            <table class="table table-sm align-middle">
+                <tbody>
+                    <tr><td class="text-muted" style="width:30%;">Room</td><td>{{ b.room.room_number }} (Floor {{ b.room.floor }})</td></tr>
+                    <tr><td class="text-muted">Date</td><td>{{ b.date|date:"M d, Y" }}</td></tr>
+                    <tr><td class="text-muted">Time</td><td>{{ b.start_time|time:"H:i" }} – {{ b.end_time|time:"H:i" }}</td></tr>
+                    <tr><td class="text-muted">Participants</td><td>{{ b.number_of_participants }}</td></tr>
+                    {% if b.requirements %}
+                    <tr><td class="text-muted">Requirements</td><td>{{ b.requirements }}</td></tr>
+                    {% endif %}
+                    {% if b.cancellation_reason %}
+                    <tr><td class="text-muted">Reason</td><td class="text-danger">{{ b.cancellation_reason }}</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        No bookings found for <strong>{{ email }}</strong>.
+    </div>
+    {% endif %}
+{% endif %}
+{% endblock %}

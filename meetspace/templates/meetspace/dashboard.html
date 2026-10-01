@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block page_title %}MeetSpace{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="page-title mb-1">MeetSpace</h2>
+        <p class="text-muted mb-0 small">Meeting room bookings</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'meetspace:availability' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-search me-1"></i> Find a room
+        </a>
+        {% if is_hr_admin %}
+        <a href="{% url 'meetspace:room_list' %}" class="btn btn-outline-primary">
+            <i class="bi bi-door-open me-1"></i> Manage Rooms
+        </a>
+        {% endif %}
+        <a href="{% url 'meetspace:booking_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> New Booking
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    {% for label, value in stats.items %}
+    <div class="col-6 col-lg-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="text-muted small">{{ label|title }}</div>
+                <div class="fs-3 fw-bold">{{ value }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-calendar3 me-1"></i> Recent bookings</span>
+                <a href="{% url 'meetspace:booking_list' %}" class="small">View all</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Meeting</th>
+                            <th>Room</th>
+                            <th>When</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in recent %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'meetspace:booking_detail' b.pk %}">{{ b.meeting_title }}</a>
+                                <div class="small text-muted">{{ b.user.get_full_name }}</div>
+                            </td>
+                            <td>{{ b.room.room_number }}</td>
+                            <td class="small">{{ b.date|date:"M d" }} {{ b.start_time|time:"H:i" }}–{{ b.end_time|time:"H:i" }}</td>
+                            <td>
+                                <span class="badge {% if b.status == 'approved' %}bg-success{% elif b.status == 'pending' %}bg-warning text-dark{% elif b.status == 'rejected' or b.status == 'cancelled' %}bg-danger{% else %}bg-info{% endif %}">
+                                    {{ b.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted py-4">No bookings yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-megaphone me-1"></i> Announcements</span>
+                {% if is_hr_admin %}
+                <a href="{% url 'meetspace:announcement_create' %}" class="small">Post one</a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% for a in announcements %}
+                <div class="mb-3 pb-3 border-bottom">
+                    <p class="mb-1">{{ a.message }}</p>
+                    <div class="small text-muted">
+                        {{ a.created_by.get_full_name }} · {{ a.created_at|date:"M d, Y" }}
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted mb-0">No announcements.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

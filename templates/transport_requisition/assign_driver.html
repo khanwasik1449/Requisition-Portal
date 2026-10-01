@@ -19,11 +19,32 @@
                 <form method="POST">
                     {% csrf_token %}
                     <div class="mb-3">
+                        <label class="form-label">Select Vehicle <span class="text-danger">*</span></label>
+                        <select name="vehicle" class="form-select" required>
+                            <option value="">-- Select Vehicle --</option>
+                            {% for v in vehicles %}
+                                <option value="{{ v.id }}">
+                                    {{ v.registration_number }} — {{ v.get_vehicle_type_display }}
+                                    {% if v.make_model %}({{ v.make_model }}){% endif %}
+                                    {% if v.capacity %}· {{ v.capacity }} seats{% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if not vehicles %}
+                        <div class="form-text text-danger">
+                            No vehicles are marked available. Add one in the Django admin
+                            under Transport Requisition → Vehicles first.
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Select Driver <span class="text-danger">*</span></label>
                         <select name="driver" class="form-select" required>
                             <option value="">-- Select Driver --</option>
                             {% for d in drivers %}
-                                <option value="{{ d.id }}">{{ d.name }} — {{ d.car_no }} ({{ d.cell_number }})</option>
+                                <option value="{{ d.id }}" {% if r.driver_id == d.id %}selected{% endif %}>
+                                    {{ d.name }} — {{ d.car_no }} ({{ d.cell_number }})
+                                </option>
                             {% endfor %}
                         </select>
                     </div>

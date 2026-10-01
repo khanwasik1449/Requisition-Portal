@@ -1,0 +1,73 @@
+{% extends 'base_public.html' %}
+{% block page_title %}New Booking — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-calendar-plus me-1"></i> Request a room</div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Meeting title</label>
+                            <input type="text" name="meeting_title" class="form-control"
+                                   value="{{ posted.meeting_title|default:'' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Room</label>
+                            <select name="room" class="form-select" required>
+                                <option value="">— Select —</option>
+                                {% for room in rooms %}
+                                <option value="{{ room.pk }}"
+                                    {% if posted.room == room.pk|stringformat:'s' %}selected{% endif %}>
+                                    Room {{ room.room_number }} (Floor {{ room.floor }}, {{ room.min_occupancy }}–{{ room.max_occupancy }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Participants</label>
+                            <input type="number" name="number_of_participants" class="form-control" min="1"
+                                   value="{{ posted.number_of_participants|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date</label>
+                            <input type="date" name="date" class="form-control"
+                                   value="{{ posted.date|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Start time</label>
+                            <input type="time" name="start_time" class="form-control"
+                                   value="{{ posted.start_time|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">End time</label>
+                            <input type="time" name="end_time" class="form-control"
+                                   value="{{ posted.end_time|default:'' }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Email address</label>
+                            <input type="email" name="email_address" class="form-control"
+                                   value="{{ posted.email_address|default:'' }}" required>
+                            <div class="form-text">Used to track your booking and receive notifications.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Requirements <span class="text-muted">(optional)</span></label>
+                            <textarea name="requirements" rows="2" class="form-control"
+                                      placeholder="Projector, video conferencing, whiteboard…">{{ posted.requirements|default:'' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Submit request
+                        </button>
+                        <a href="{% url 'meetspace:booking_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

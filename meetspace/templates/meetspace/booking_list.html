@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block page_title %}Bookings — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="page-title mb-1">Bookings</h2>
+        <p class="text-muted mb-0 small">
+            {% if is_hr_admin %}All room booking requests{% else %}Your room booking requests{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'meetspace:booking_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> New Booking
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Filter</button>
+            </div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Meeting</th>
+                    {% if is_hr_admin %}<th>Requester</th>{% endif %}
+                    <th>Room</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bookings %}
+                <tr>
+                    <td>
+                        <a href="{% url 'meetspace:booking_detail' b.pk %}">{{ b.meeting_title }}</a>
+                    </td>
+                    {% if is_hr_admin %}<td>{{ b.user.get_full_name }}</td>{% endif %}
+                    <td>{{ b.room.room_number }}</td>
+                    <td>{{ b.date|date:"M d, Y" }}</td>
+                    <td>{{ b.start_time|time:"H:i" }}–{{ b.end_time|time:"H:i" }}</td>
+                    <td>
+                        <span class="badge {% if b.status == 'approved' %}bg-success{% elif b.status == 'pending' %}bg-warning text-dark{% elif b.status == 'rejected' or b.status == 'cancelled' %}bg-danger{% else %}bg-info{% endif %}">
+                            {{ b.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'meetspace:booking_detail' b.pk %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No bookings found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends 'base_public.html' %}
+{% block page_title %}Track Transport Request{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="pub-title mb-1">Track Your Transport Request</h2>
+    <p class="pub-sub">Enter the email address you used when submitting.</p>
+</div>
+
+<div class="mb-4">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <label class="form-label" for="email">Email address</label>
+        <div class="input-group">
+            <input type="email" name="email" id="email" class="form-control"
+                   value="{{ email|default:'' }}" placeholder="you@example.com" required>
+            <button type="submit" class="pub-btn pub-btn-primary">
+                <i class="bi bi-search"></i> Track
+            </button>
+        </div>
+        <div class="form-text">Only requests submitted with this exact email address are shown.</div>
+    </form>
+</div>
+
+{% if searched %}
+    {% if requisitions %}
+        <div class="alert alert-success d-flex align-items-center py-2 px-3 small mb-3">
+            <i class="bi bi-check-circle me-2"></i>
+            {{ requisitions|length }} request{{ requisitions|length|pluralize }} found for
+            <strong>{{ email }}</strong>
+        </div>
+
+        {% for r in requisitions %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span class="fw-semibold">{{ r.request_number }}</span>
+                {% include 'transport_requisition/_status_badge.html' with status=r.status variant='sm' %}
+            </div>
+            <div class="card-body">
+                <table class="table table-sm align-middle">
+                    <tbody>
+                        <tr><td class="text-muted" style="width:34%;">Destination</td><td>{{ r.destination }}</td></tr>
+                        <tr><td class="text-muted">Pick-up</td><td>{{ r.pick_up_date }} at {{ r.pick_up_time }} &mdash; {{ r.pick_up_location }}</td></tr>
+                        <tr><td class="text-muted">Drop-off</td><td>{{ r.drop_off_date }} at {{ r.drop_off_time }} &mdash; {{ r.drop_off_location }}</td></tr>
+                        <tr><td class="text-muted">Vehicle</td><td>{{ r.get_vehicle_type_display }} &middot; {{ r.num_passengers }} passenger{{ r.num_passengers|pluralize }}</td></tr>
+                        <tr><td class="text-muted">Submitted</td><td>{{ r.created_at|date:"d M Y, H:i" }}</td></tr>
+                        {% if r.driver %}
+                        <tr><td class="text-muted">Driver</td>
+                            <td>{{ r.driver.name }} &mdash; {{ r.driver.car_no }} ({{ r.driver.cell_number }})</td></tr>
+                        {% endif %}
+                        {% if r.status == 'rejected' and r.rejection_reason %}
+                        <tr><td class="text-muted">Reason</td><td class="text-danger">{{ r.rejection_reason }}</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-warning d-flex align-items-start py-2 px-3 small">
+            <i class="bi bi-exclamation-triangle me-2 mt-1"></i>
+            <div>No requests found for <strong>{{ email }}</strong>. Check the spelling, or contact the
+            transport office if you used a different address.</div>
+        </div>
+    {% endif %}
+{% endif %}
+
+<div class="text-center pt-3 border-top">
+    <a href="{% url 'transport_requisition:create' %}" class="pub-btn pub-btn-ghost">
+        <i class="bi bi-truck"></i> Submit a new request
+    </a>
+</div>
+{% endblock %}

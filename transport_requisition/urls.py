@@ -5,7 +5,11 @@ app_name = 'transport_requisition'
 
 urlpatterns = [
     path('', views.list_view, name='list'),
+    # Public endpoints — no login required.
     path('create/', views.create_view, name='create'),
+    path('track/', views.track_view, name='track'),
+    # Admin-only tracking history.
+    path('history/', views.history_view, name='history'),
     path('<int:pk>/', views.detail_view, name='detail'),
     path('<int:pk>/approve/', views.approve_view, name='approve'),
     path('<int:pk>/reject/', views.reject_view, name='reject'),

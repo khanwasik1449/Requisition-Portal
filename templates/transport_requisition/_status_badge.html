@@ -1,0 +1,32 @@
+{% load portal_config_tags %}
+{% comment %}
+Renders a requisition's status badge from the workflow configuration.
+
+Expects:
+  status      -- the raw status value stored on the requisition
+  stage_by_key -- dict of stage key -> WorkflowStage, from the view
+  variant     -- 'sm' for the compact list badge, 'full' for detail pages
+{% endcomment %}
+{% with stage=stage_by_key|get_item:status %}
+{% if stage %}
+    {% if stage.is_terminal %}
+        <span class="badge bg-success{% if variant == 'sm' %} text-nowrap{% endif %}">
+            <i class="bi bi-check-circle me-1"></i>{{ stage.name }}
+        </span>
+    {% else %}
+        <span class="badge bg-warning{% if variant == 'sm' %} text-nowrap{% endif %}">
+            <i class="bi bi-hourglass-split me-1"></i>{{ stage.name }}
+        </span>
+    {% endif %}
+{% elif status == 'rejected' %}
+    {% comment %}
+    Declined is terminal but is not a configured stage -- it short-circuits
+    the chain, so it keeps a fixed badge.
+    {% endcomment %}
+    <span class="badge bg-danger{% if variant == 'sm' %} text-nowrap{% endif %}">
+        <i class="bi bi-x-circle me-1"></i>Declined
+    </span>
+{% else %}
+    <span class="badge bg-secondary text-nowrap">{{ status }}</span>
+{% endif %}
+{% endwith %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block page_title %}Confirm removal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill"></i> Confirm removal
+            </div>
+            <div class="card-body">
+                <p class="fw-semibold mb-1">Remove this field from the {{ module.name }} form?</p>
+                <p class="text-muted small mb-3">
+                    <strong>{{ object_label }}</strong> will stop appearing on the form.
+                    Values already submitted are kept in the database, but new
+                    submissions will no longer collect it.
+                </p>
+                <form method="POST" action="{{ action_url }}">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i> Remove field
+                        </button>
+                        <a href="{% url 'portal_config:field_list' module.key %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

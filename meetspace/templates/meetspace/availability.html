@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block page_title %}Find a Room — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-search me-1"></i> Check availability</div>
+            <div class="card-body">
+                <form method="POST" class="row g-2 align-items-end">
+                    {% csrf_token %}
+                    <div class="col-md-3">
+                        <label class="form-label small">Date</label>
+                        <input type="date" name="date" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">From</label>
+                        <input type="time" name="start_time" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">To</label>
+                        <input type="time" name="end_time" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Participants</label>
+                        <input type="number" name="number_of_participants" class="form-control form-control-sm" min="1" required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">Search</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if searched %}
+            {% if results %}
+            <div class="card">
+                <div class="card-header"><i class="bi bi-check-circle me-1"></i> Available rooms</div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Room</th><th>Floor</th><th>Capacity</th><th class="text-end"></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for room in results %}
+                            <tr>
+                                <td class="fw-semibold">{{ room.room_number }}</td>
+                                <td>{{ room.floor }}</td>
+                                <td>{{ room.min_occupancy }}–{{ room.max_occupancy }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'meetspace:booking_create' %}" class="btn btn-sm btn-primary">Book</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                No rooms are free for that slot{% if suggestions %}. Here are the nearest alternatives{% endif %}.
+            </div>
+            {% endif %}
+
+            {% if suggestions %}
+            <div class="card mt-3">
+                <div class="card-header"><i class="bi bi-lightbulb me-1"></i> Suggested slots</div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Room</th><th>Date</th><th>Time</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for s in suggestions %}
+                            <tr>
+                                <td class="fw-semibold">Room {{ s.room.room_number }}</td>
+                                <td>{{ s.date|date:"M d, Y" }}</td>
+                                <td>{{ s.start_time|time:"H:i" }}–{{ s.end_time|time:"H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

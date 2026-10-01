@@ -6,6 +6,8 @@ class User(AbstractUser):
     class Role(models.TextChoices):
         REQUESTER = 'requester', 'Requester'
         SUPERVISOR = 'supervisor', 'Supervisor (1st Approver)'
+        GRANTS = 'grants', 'Grants (2nd Approver)'
+        GRANTS_ADMIN = 'grants_admin', 'Grants Admin'
         ICT_APPROVER = 'ict_approver', 'ICT Approver (2nd Approver)'
         ICT_ADMIN = 'ict_admin', 'ICT Admin'
         TRANSPORT_ADMIN = 'transport_admin', 'Transport Admin'
@@ -18,9 +20,9 @@ class User(AbstractUser):
 
     def is_approver(self):
         return self.role in [
-            self.Role.SUPERVISOR, self.Role.ICT_APPROVER,
+            self.Role.SUPERVISOR, self.Role.GRANTS, self.Role.ICT_APPROVER,
             self.Role.ICT_ADMIN, self.Role.TRANSPORT_ADMIN, self.Role.INTERNAL_ADMIN,
-            self.Role.ADMIN,
+            self.Role.GRANTS_ADMIN, self.Role.ADMIN,
         ]
 
     def is_first_approver(self):
@@ -30,9 +32,12 @@ class User(AbstractUser):
             self.Role.ADMIN,
         ]
 
+    def is_grants(self):
+        return self.role in [self.Role.GRANTS, self.Role.GRANTS_ADMIN, self.Role.ADMIN]
+
     def is_second_approver(self):
         return self.role in [
-            self.Role.ICT_APPROVER,
+            self.Role.ICT_APPROVER, self.Role.GRANTS, self.Role.GRANTS_ADMIN,
             self.Role.ICT_ADMIN, self.Role.TRANSPORT_ADMIN, self.Role.INTERNAL_ADMIN,
             self.Role.ADMIN,
         ]

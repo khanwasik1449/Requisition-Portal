@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block page_title %}{% if room %}Edit{% else %}Add{% endif %} Room — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-door-open me-1"></i>
+                {% if room %}Edit Room {{ room.room_number }}{% else %}Add a Room{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Room number</label>
+                            <input type="text" name="room_number" class="form-control"
+                                   value="{{ room.room_number|default:'' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Floor</label>
+                            <input type="text" name="floor" class="form-control"
+                                   value="{{ room.floor|default:'' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Minimum occupancy</label>
+                            <input type="number" name="min_occupancy" class="form-control" min="1"
+                                   value="{{ room.min_occupancy|default:1 }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Maximum occupancy</label>
+                            <input type="number" name="max_occupancy" class="form-control" min="1"
+                                   value="{{ room.max_occupancy|default:10 }}" required>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Save
+                        </button>
+                        <a href="{% url 'meetspace:room_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

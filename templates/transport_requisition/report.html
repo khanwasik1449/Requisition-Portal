@@ -32,10 +32,12 @@
                 <label class="form-label small">Status</label>
                 <select name="status" class="form-select form-select-sm">
                     <option value="">All</option>
-                    <option value="pending_first" {% if status_filter == 'pending_first' %}selected{% endif %}>Pending 1st</option>
-                    <option value="pending_second" {% if status_filter == 'pending_second' %}selected{% endif %}>Pending 2nd</option>
-                    <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
-                    <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                    {% comment %}Built from the configured chain, so new stages appear here
+                       without editing this template.{% endcomment %}
+                    {% for stage in stages %}
+                    <option value="{{ stage.key }}" {% if status_filter == stage.key %}selected{% endif %}>{{ stage.name }}</option>
+                    {% endfor %}
+                    <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Declined</option>
                 </select>
             </div>
             <div class="col-md-3 d-flex gap-1">
@@ -111,15 +113,7 @@
                         <td class="small">{{ r.pick_up_date|date:"M d, Y" }}</td>
                         <td>{% if r.driver %}{{ r.driver.name }}{% else %}<span class="text-muted small">—</span>{% endif %}</td>
                         <td>
-                            {% if r.status == 'pending_first' %}
-                                <span class="badge bg-warning">Pending 1st</span>
-                            {% elif r.status == 'pending_second' %}
-                                <span class="badge bg-info">Pending 2nd</span>
-                            {% elif r.status == 'approved' %}
-                                <span class="badge bg-success">Approved</span>
-                            {% elif r.status == 'rejected' %}
-                                <span class="badge bg-danger">Rejected</span>
-                            {% endif %}
+                            {% include 'transport_requisition/_status_badge.html' with status=r.status variant='sm' %}
                         </td>
                         <td class="text-end">
                             <a href="{% url 'transport_requisition:detail' r.id %}" class="btn btn-sm btn-outline-secondary" title="View">

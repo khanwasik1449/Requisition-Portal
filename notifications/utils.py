@@ -1,13 +1,19 @@
+import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
+from django.db.models import Q
 from django.urls import reverse
 from .models import EmailConfig
 
 signer = TimestampSigner(salt='requisition-action')
 
-BASE_URL = 'http://10.10.11.201:8000'
+# Where the portal is reachable from a browser. Action links are signed with
+# SECRET_KEY, so they only work on an instance running the same key -- a link
+# built for the dev server on :8000 is rejected by gunicorn behind nginx on
+# :80, and vice versa. Override with DJANGO_BASE_URL in .env.
+BASE_URL = os.environ.get('DJANGO_BASE_URL', 'http://10.10.11.201').rstrip('/')
 
 
 def sign_action_token(requisition_type, requisition_id, action, user_id):
@@ -173,22 +179,45 @@ def _build_notification_email(recipient_name, label, requisition, subject_line, 
 </html>'''
 
 
-def send_approval_request(department, requisition, req_type, status, request=None):
+def _approvers_for_stage(module_key, stage_key):
+    """Work out who should be asked to act at a given stage.
+
+    Read from the workflow configuration: the stage names the role that is
+    allowed to act, and we email every active user holding it. Returns an empty
+    list when the stage is unknown, which is what makes a misconfigured chain
+    fail quietly in the email log rather than crash a submission.
+    """
+    from portal_config import engine
     from accounts.models import User
 
-    active = User.objects.filter(is_active=True)
+    stage = engine.get_stage(module_key, stage_key)
+    if stage is None:
+        return []
+    if not stage.approver_role:
+        # No role pinned: fall back to anyone who can approve at all.
+        return list(User.objects.filter(is_active=True).exclude(role=User.Role.REQUESTER))
 
-    if status == 'pending_first':
-        if req_type == 'ict' and hasattr(requisition, 'supervisor') and requisition.supervisor:
-            approvers = [requisition.supervisor]
-        else:
-            approvers = list(active.filter(role='supervisor'))
-            if not approvers:
-                dept_key = {'ict': 'ict_admin', 'transport': 'transport_admin', 'internal': 'internal_admin'}
-                approvers = list(active.filter(role=dept_key.get(req_type, 'supervisor')))
-    elif status == 'pending_second':
-        approvers = list(active.filter(role='ict_approver'))
-    else:
+    # Admins hold every stage role implicitly (engine.stage_allows lets them
+    # through), so they have to be on the mailing list too — otherwise a chain
+    # configured for a role nobody holds would have no recipient at all.
+    return list(
+        User.objects.filter(is_active=True)
+        .filter(Q(role=stage.approver_role) | Q(role=User.Role.ADMIN))
+        .distinct()
+    )
+
+
+def send_approval_request(department, requisition, req_type, status, request=None):
+    """Ask the role that owns ``status`` to act.
+
+    ``status`` is the stage key the requisition is now sitting at, so the
+    recipient list follows whatever chain is configured rather than a hardcoded
+    two-step approval.
+    """
+    from accounts.models import User
+
+    approvers = _approvers_for_stage(req_type, status)
+    if not approvers:
         return
 
     if req_type == 'ict':
@@ -214,57 +243,25 @@ def send_approval_request(department, requisition, req_type, status, request=Non
 
         subject = f'{label} Requisition {requisition.request_number} — Action Required'
         html = _build_approval_email(approver.username, label, requisition, status, approve_link, reject_link)
-        send_department_email(dept, subject, html, [to_email], html=True, email_type='approval_request', req_type=req_type, req_id=requisition.pk)
+        # Queue the email instead of sending synchronously
+        from .tasks import queue_approval_email_for_approver
+        queue_approval_email_for_approver(req_type, requisition.pk, status, approver.pk, dept, label)
 
 
 def send_department_email(department, subject, message, to_emails, html=False, email_type='notification', req_type='', req_id=None):
-    from .models import EmailLog
+    """Queue an email for background delivery.
+
+    Replaces the synchronous SMTP call with a django-q task so the
+    HTTP response returns immediately.
+    """
+    from .tasks import send_email_task
 
     to_list = to_emails if isinstance(to_emails, list) else [to_emails]
-    primary = to_list[0] if to_list else ''
-
-    try:
-        config = EmailConfig.objects.get(department=department, is_active=True)
-    except EmailConfig.DoesNotExist:
-        EmailLog.objects.create(
-            department=department, email_type=email_type,
-            req_type=req_type, req_id=req_id,
-            recipient=primary, subject=subject,
-            status=EmailLog.Status.FAILED,
-            error_message='No active email config found.',
-        )
-        return
-
-    msg = MIMEMultipart('alternative')
-    msg['From'] = config.from_email
-    msg['To'] = ', '.join(to_list)
-    msg['Subject'] = subject
-
-    if html:
-        msg.attach(MIMEText(message, 'html', 'utf-8'))
-    else:
-        msg.attach(MIMEText(message, 'plain', 'utf-8'))
-
-    try:
-        server = smtplib.SMTP(config.email_host, config.email_port)
-        if config.email_use_tls:
-            server.starttls()
-        server.login(config.email_host_user, config.email_host_password)
-        server.sendmail(config.from_email, to_list, msg.as_string())
-        server.quit()
-        EmailLog.objects.create(
-            department=department, email_type=email_type,
-            req_type=req_type, req_id=req_id,
-            recipient=primary, subject=subject,
-            status=EmailLog.Status.SUCCESS,
-        )
-    except Exception as e:
-        EmailLog.objects.create(
-            department=department, email_type=email_type,
-            req_type=req_type, req_id=req_id,
-            recipient=primary, subject=subject,
-            status=EmailLog.Status.FAILED,
-            error_message=str(e),
+    for email in to_list:
+        async_task(
+            'notifications.tasks.send_email_task',
+            department, subject, message, [email], html,
+            email_type, req_type, req_id
         )
 
 

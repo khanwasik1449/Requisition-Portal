@@ -8,15 +8,7 @@
             <div class="card-header d-flex align-items-center justify-content-between">
                 <span><i class="bi bi-info-circle me-2" style="color:#d97706;"></i>Transport Requisition {{ r.request_number }}</span>
                 <span>
-                    {% if r.status == 'pending_first' %}
-                        <span class="badge bg-warning"><i class="bi bi-hourglass-split me-1"></i>Pending First Approval</span>
-                    {% elif r.status == 'pending_second' %}
-                        <span class="badge bg-info"><i class="bi bi-hourglass-split me-1"></i>Pending Second Approval</span>
-                    {% elif r.status == 'approved' %}
-                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
-                    {% elif r.status == 'rejected' %}
-                        <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rejected</span>
-                    {% endif %}
+                    {% include 'transport_requisition/_status_badge.html' with status=r.status %}
                 </span>
             </div>
             <div class="card-body">
@@ -127,22 +119,41 @@
                 </div>
                 {% endif %}
 
+                {% comment %}Progress is rendered from the configured chain, so a stage added or renamed
+                   in the Form Builder appears here without a template change.{% endcomment %}
                 <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="bi bi-check2-circle me-1"></i> Approval Status</h6>
-                {% if r.first_approver %}
+                {% for step in trail %}
                 <div class="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
-                    <i class="bi bi-check-circle-fill text-success"></i>
-                    <span><strong>1st Approval:</strong> {{ r.first_approver.username }} on {{ r.first_approved_at|date:"M d, Y H:i" }}</span>
+                    {% if step.done and not step.current %}
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        <span>
+                            <strong>{{ step.stage.name }}:</strong>
+                            {% if step.by %}{{ step.by.username }}{% else %}approved{% endif %}
+                            {% if step.at %}on {{ step.at|date:"M d, Y H:i" }}{% endif %}
+                        </span>
+                    {% elif step.current %}
+                        <i class="bi bi-hourglass-split text-warning"></i>
+                        <span class="text-muted"><strong>{{ step.stage.name }}:</strong> awaiting a decision</span>
+                    {% else %}
+                        <i class="bi bi-circle text-muted"></i>
+                        <span class="text-muted">{{ step.stage.name }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if r.grants_amended %}
+                <div class="mb-2 p-3 bg-info bg-opacity-10 rounded small">
+                    <i class="bi bi-pencil-square me-1"></i>
+                    <strong>Funding codes corrected by Grants.</strong>
+                    <ul class="mb-0 mt-1">
+                        <li>Project: <code>{{ r.project_name_code }}</code></li>
+                        <li>Budget: <code>{{ r.budget_code }}</code></li>
+                        {% if r.grants_remarks %}<li>Remark: {{ r.grants_remarks }}</li>{% endif %}
+                    </ul>
                 </div>
                 {% endif %}
-                {% if r.second_approver %}
-                <div class="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
-                    <i class="bi bi-check-circle-fill text-success"></i>
-                    <span><strong>2nd Approval:</strong> {{ r.second_approver.username }} on {{ r.second_approved_at|date:"M d, Y H:i" }}</span>
-                </div>
-                {% endif %}
-                {% if not r.first_approver and not r.second_approver and r.status != 'rejected' %}
+                {% if r.status == 'rejected' and not r.grants_amended %}
                 <div class="mb-2 p-3 bg-light rounded text-muted">
-                    <i class="bi bi-clock me-1"></i> Awaiting approval
+                    <i class="bi bi-clock me-1"></i> This requisition was declined before completing the chain.
                 </div>
                 {% endif %}
                 {% if r.rejection_reason %}
@@ -155,22 +166,25 @@
                 </div>
                 {% endif %}
 
-                {% if r.status == 'approved' %}
-                <h6 class="fw-bold mb-3" style="color:#198754;"><i class="bi bi-person-badge me-1"></i> Driver Assignment</h6>
-                {% if r.driver %}
+                {% if r.driver or r.vehicle %}
+                <h6 class="fw-bold mb-3" style="color:#198754;"><i class="bi bi-person-badge me-1"></i> Vehicle &amp; Driver Assignment</h6>
+                {% if r.driver or r.vehicle %}
                 <div class="mb-3 p-3 bg-light rounded">
                     <div class="row">
                         <div class="col-md-4 mb-2">
-                            <label class="form-label text-muted small mb-1">Driver Name</label>
-                            <div class="fw-semibold">{{ r.driver.name }}</div>
+                            <label class="form-label text-muted small mb-1">Vehicle</label>
+                            <div class="fw-semibold">{% if r.vehicle %}{{ r.vehicle.registration_number }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+                            {% if r.vehicle %}
+                            <div class="small text-muted">{{ r.vehicle.get_vehicle_type_display }}{% if r.vehicle.make_model %} · {{ r.vehicle.make_model }}{% endif %}</div>
+                            {% endif %}
                         </div>
                         <div class="col-md-4 mb-2">
-                            <label class="form-label text-muted small mb-1">Car Number</label>
-                            <div class="fw-semibold">{{ r.driver.car_no }}</div>
+                            <label class="form-label text-muted small mb-1">Driver Name</label>
+                            <div class="fw-semibold">{% if r.driver %}{{ r.driver.name }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
                         </div>
                         <div class="col-md-4 mb-2">
                             <label class="form-label text-muted small mb-1">Cell Number</label>
-                            <div class="fw-semibold">{{ r.driver.cell_number }}</div>
+                            <div class="fw-semibold">{% if r.driver %}{{ r.driver.cell_number }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
                         </div>
                     </div>
                     {% if r.assigned_by %}
@@ -179,11 +193,12 @@
                     </div>
                     {% endif %}
                 </div>
-                {% else %}
-                <div class="mb-3 p-3 bg-light rounded text-muted">
-                    <i class="bi bi-clock me-1"></i> No driver assigned yet
-                </div>
                 {% endif %}
+                {% else %}
+                <h6 class="fw-bold mb-3" style="color:#198754;"><i class="bi bi-person-badge me-1"></i> Vehicle &amp; Driver Assignment</h6>
+                <div class="mb-3 p-3 bg-light rounded text-muted">
+                    <i class="bi bi-clock me-1"></i> No vehicle or driver assigned yet
+                </div>
                 {% endif %}
 
                 <hr>
@@ -191,24 +206,71 @@
                     <a href="{% url 'transport_requisition:list' %}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i> Back
                     </a>
-                    {% if r.status == 'pending_first' or r.status == 'pending_second' %}
-                        {% if user.is_approver or user.is_admin %}
-                            <a href="{% url 'transport_requisition:approve' r.id %}" class="btn btn-success">
-                                <i class="bi bi-check-lg me-1"></i> Approve
-                            </a>
-                            <a href="{% url 'transport_requisition:reject' r.id %}" class="btn btn-danger">
-                                <i class="bi bi-x-lg me-1"></i> Reject
+                    {% comment %}Actions available here depend on the stage this requisition is sitting at
+                   and on what that stage is configured to allow.{% endcomment %}
+                    {% if can_act %}
+                        {% if stage.can_assign %}
+                            <a href="{% url 'transport_requisition:assign_driver' r.id %}" class="btn btn-primary">
+                                <i class="bi bi-truck me-1"></i> Assign Vehicle &amp; Driver
                             </a>
                         {% endif %}
-                    {% endif %}
-                    {% if r.status == 'approved' and r.driver is None %}
-                        {% if user.is_admin or user.is_transport_admin %}
-                            <a href="{% url 'transport_requisition:assign_driver' r.id %}" class="btn btn-primary">
-                                <i class="bi bi-truck me-1"></i> Assign Driver
+                        {% if stage.can_decline %}
+                            <a href="{% url 'transport_requisition:reject' r.id %}" class="btn btn-outline-danger">
+                                <i class="bi bi-x-lg me-1"></i> Decline
                             </a>
                         {% endif %}
                     {% endif %}
                 </div>
+
+                {% if can_act and stage.can_amend and amendable_fields %}
+                <div class="card mt-3 border-warning">
+                    <div class="card-header bg-warning bg-opacity-25">
+                        <i class="bi bi-pencil-square me-1"></i>
+                        <strong>{{ stage.name }}</strong> — you may correct these before approving
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="{% url 'transport_requisition:approve' r.id %}">
+                            {% csrf_token %}
+                            <div class="row g-3">
+                                {% for field in amendable_fields %}
+                                <div class="col-md-6">
+                                    <label class="form-label" for="amend-{{ field.key }}">
+                                        {{ field.label }}
+                                    </label>
+                                    {% if field.option_list %}
+                                        <select name="{{ field.key }}" id="amend-{{ field.key }}" class="form-select form-select-sm">
+                                            {% for opt_value, opt_label in field.option_list %}
+                                            <option value="{{ opt_value }}"
+                                                {% if field.key == 'project_name_code' and opt_value == r.project_name_code %}selected{% endif %}
+                                                {% if field.key == 'budget_code' and opt_value == r.budget_code %}selected{% endif %}>{{ opt_label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    {% else %}
+                                        <input type="{{ field.input_type }}" name="{{ field.key }}"
+                                               id="amend-{{ field.key }}" class="form-control form-control-sm"
+                                               value="{% if field.key == 'project_name_code' %}{{ r.project_name_code }}{% elif field.key == 'budget_code' %}{{ r.budget_code }}{% endif %}">
+                                    {% endif %}
+                                    <div class="form-text">Currently: <code>{{ field.key }}</code></div>
+                                </div>
+                                {% endfor %}
+                                <div class="col-12">
+                                    <label class="form-label" for="grants-remarks">Remarks (optional)</label>
+                                    <textarea name="remarks" id="grants-remarks" rows="2"
+                                              class="form-control form-control-sm"
+                                              placeholder="Why the codes were changed."></textarea>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success mt-3">
+                                <i class="bi bi-check-lg me-1"></i> Approve at {{ stage.name }}
+                            </button>
+                            <div class="form-text mt-2">
+                                Any value you change here is recorded in the audit log and shown
+                                to the requester.
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

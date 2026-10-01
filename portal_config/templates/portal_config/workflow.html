@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ module.name }} — Approval Workflow{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="{% url 'portal_config:module_list' %}">Configuration</a></li>
+                        <li class="breadcrumb-item active">{{ module.name }}</li>
+                    </ol>
+                </nav>
+                <h5 class="mb-0">Approval workflow</h5>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'portal_config:field_list' module.key %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-list-ul me-1"></i> Fields
+                </a>
+                <a href="{% url 'portal_config:workflow_add_stage' module.key %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i> Add stage
+                </a>
+            </div>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            {% for row in stage_rows %}
+            {% with stage=row.stage %}
+            <div class="card mb-3">
+                <div class="card-header d-flex align-items-center justify-content-between py-2">
+                    <div>
+                        <span class="badge text-bg-secondary me-2">{{ forloop.counter }}</span>
+                        <strong>{{ stage.name }}</strong>
+                        <code class="ms-2 small text-muted">{{ stage.key }}</code>
+                    </div>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox"
+                               name="stage-{{ stage.pk }}-active" id="stage-{{ stage.pk }}-active"
+                               {% if stage.is_active %}checked{% endif %}>
+                        <label class="form-check-label small" for="stage-{{ stage.pk }}-active">Active</label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" name="stage-order" value="{{ stage.pk }}">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label">Stage name</label>
+                            <input type="text" class="form-control form-control-sm"
+                                   name="stage-{{ stage.pk }}-name" value="{{ stage.name }}">
+                            <div class="form-text">Shown to approvers and on the tracking page.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Who can act here</label>
+                            <select class="form-select form-select-sm" name="stage-{{ stage.pk }}-role">
+                                <option value="" {% if not stage.approver_role %}selected{% endif %}>Any approver</option>
+                                {% for value, label in role_choices %}
+                                <option value="{{ value }}" {% if stage.approver_role == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Superadmin can always act, whatever this is set to.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Allowed actions</label>
+                            <input type="text" class="form-control form-control-sm"
+                                   name="stage-{{ stage.pk }}-actions" value="{{ stage.actions }}">
+                            <div class="form-text">
+                                {% for value, label in actions %}<code>{{ value }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Fields this stage may correct before approving</label>
+                            <div class="border rounded p-2" style="max-height:170px;overflow:auto;">
+                                {% for field in all_fields %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="stage-{{ stage.pk }}-amend" value="{{ field.pk }}"
+                                           id="amend-{{ stage.pk }}-{{ field.pk }}"
+                                           {% if field.pk in row.amendable_pks %}checked{% endif %}>
+                                    <label class="form-check-label small" for="amend-{{ stage.pk }}-{{ field.pk }}">
+                                        {{ field.label }} <code class="text-muted">{{ field.key }}</code>
+                                    </label>
+                                </div>
+                                {% empty %}
+                                <span class="text-muted small">This module has no form fields yet.</span>
+                                {% endfor %}
+                            </div>
+                            <div class="form-text">
+                                Tick <code>amend</code> in the actions above for these inputs to
+                                appear on the approval screen.
+                            </div>
+                        </div>
+
+                        <div class="col-12 d-flex align-items-center justify-content-between">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="stage-{{ stage.pk }}-terminal" id="stage-{{ stage.pk }}-terminal"
+                                       {% if stage.is_terminal %}checked{% endif %}>
+                                <label class="form-check-label" for="stage-{{ stage.pk }}-terminal">
+                                    Final stage — end of the workflow
+                                </label>
+                            </div>
+                            {% if stage_rows|length > 1 %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="stage-{{ stage.pk }}-delete" id="stage-{{ stage.pk }}-delete">
+                                <label class="form-check-label text-danger" for="stage-{{ stage.pk }}-delete">
+                                    Remove this stage
+                                </label>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+
+            <div class="alert alert-warning small">
+                Removing a stage does not change requisitions already sitting at it —
+                they keep their status until acted on. Add the new stage first if you
+                are rearranging a live chain.
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-1"></i> Save workflow
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

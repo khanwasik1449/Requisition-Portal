@@ -1,10 +1,11 @@
 import itertools
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from .models import EmailConfig, Department, EmailLog, AuditLog
-from .utils import unsign_action_token, send_approval_request
+from .utils import unsign_action_token, send_approval_request, notify_requester, log_audit
 from accounts.models import User
 
 
@@ -83,20 +84,31 @@ REQUISITION_MODELS = {}
 
 
 def get_requisition_model(req_type):
+    from portal_config.engine import enabled_module_keys
     if req_type not in REQUISITION_MODELS:
-        if req_type == 'ict':
+        enabled = set(enabled_module_keys())
+        if req_type == 'ict' and 'ict' in enabled:
             from ict_requisition.models import ICTRequisition
             REQUISITION_MODELS['ict'] = ICTRequisition
-        elif req_type == 'transport':
+        elif req_type == 'transport' and 'transport' in enabled:
             from transport_requisition.models import TransportRequisition
             REQUISITION_MODELS['transport'] = TransportRequisition
-        elif req_type == 'internal':
+        elif req_type == 'internal' and 'internal' in enabled:
             from internal_requisition.models import InternalRequisition
             REQUISITION_MODELS['internal'] = InternalRequisition
     return REQUISITION_MODELS.get(req_type)
 
 
 def email_action_view(request, token):
+    """Approve or decline a requisition from the link in an approval email.
+
+    The chain, the allowed roles and the actions at each stage all come from
+    ``portal_config``, so this handler behaves the same as clicking Approve in
+    the portal itself: it writes an audit entry, moves the requisition to the
+    next configured stage, and emails the next approver and the requester.
+    """
+    from portal_config import engine
+
     data = unsign_action_token(token)
     if not data:
         return render(request, 'notifications/action_error.html', {'error': 'Invalid or expired link.'})
@@ -106,53 +118,107 @@ def email_action_view(request, token):
         return render(request, 'notifications/action_error.html', {'error': 'Invalid requisition type.'})
 
     requisition = get_object_or_404(model, pk=data['id'])
+    # The token names who the link was issued to. Requiring that same person to
+    # be signed in stops a forwarded or leaked link from acting as someone else.
     actor = get_object_or_404(User, pk=data['user_id'])
+    if not request.user.is_authenticated:
+        return redirect(f'{settings.LOGIN_URL}?next={request.path}')
+    if request.user.pk != actor.pk:
+        return render(request, 'notifications/action_error.html', {
+            'error': 'This approval link was sent to a different user. '
+                     'Sign in as that user, or open the requisition from your dashboard.',
+        })
+
+    stage = engine.get_stage(data['type'], requisition.status)
+    if stage is None or stage.is_terminal:
+        return render(request, 'notifications/action_error.html', {
+            'error': 'This requisition is no longer awaiting approval.',
+        })
+    if not engine.stage_allows(stage, actor):
+        return render(request, 'notifications/action_error.html', {
+            'error': f'You are not authorised to act at "{stage.name}".',
+        })
 
     if data['action'] == 'approve':
-        if requisition.status not in (model.Status.PENDING_FIRST, model.Status.PENDING_SECOND):
-            return render(request, 'notifications/action_error.html', {'error': 'This requisition is no longer pending approval.'})
+        if not stage.can_approve:
+            return render(request, 'notifications/action_error.html', {
+                'error': f'"{stage.name}" does not allow approval.',
+            })
+        _advance_from_email(request, data['type'], requisition, stage, actor)
+        return render(request, 'notifications/action_success.html', {
+            'message': f'Requisition #{requisition.pk} approved at "{stage.name}".',
+        })
 
-        if requisition.status == model.Status.PENDING_FIRST:
-            if not (actor.is_first_approver() or actor.is_admin()):
-                return render(request, 'notifications/action_error.html', {'error': 'You are not authorized for first-level approval.'})
-            requisition.status = model.Status.PENDING_SECOND
-            requisition.first_approver = actor
-            requisition.first_approved_at = timezone.now()
-        elif requisition.status == model.Status.PENDING_SECOND:
-            if not (actor.is_second_approver() or actor.is_admin()):
-                return render(request, 'notifications/action_error.html', {'error': 'You are not authorized for second-level approval.'})
-            requisition.status = model.Status.APPROVED
-            requisition.second_approver = actor
-            requisition.second_approved_at = timezone.now()
-
-        requisition.save()
-        return render(request, 'notifications/action_success.html', {'message': f'Requisition #{requisition.pk} has been approved.'})
-
-    elif data['action'] == 'reject':
+    if data['action'] == 'reject':
+        if not stage.can_decline:
+            return render(request, 'notifications/action_error.html', {
+                'error': f'"{stage.name}" does not allow declining.',
+            })
         if request.method == 'POST':
-            reason = request.POST.get('reason', '')
+            reason = (request.POST.get('reason') or '').strip()
+            if not reason and stage.require_reason_on_decline:
+                messages.error(request, 'Please give a reason so the requester knows what to fix.')
+                return redirect(request.path)
+
             requisition.status = model.Status.REJECTED
             requisition.rejection_reason = reason
             requisition.rejected_at = timezone.now()
             requisition.save()
-            return render(request, 'notifications/action_success.html', {'message': f'Requisition #{requisition.pk} has been rejected.'})
-        return render(request, 'notifications/reject_reason.html', {'r': requisition, 'token': token, 'portal_url': '/'})
+
+            log_audit(data['type'], requisition.pk, requisition.request_number,
+                      'rejected', actor, f'{stage.name}: {reason}')
+            notify_requester(data['type'], requisition, data['type'], 'rejected')
+            return render(request, 'notifications/action_success.html', {
+                'message': f'Requisition #{requisition.pk} rejected at "{stage.name}".',
+            })
+        return render(request, 'notifications/reject_reason.html', {
+            'r': requisition, 'token': token, 'stage': stage, 'portal_url': '/',
+        })
 
     return render(request, 'notifications/action_error.html', {'error': 'Invalid action.'})
+
+
+def _advance_from_email(request, req_type, requisition, stage, actor):
+    """Move a requisition past ``stage``, mirroring the in-portal approval.
+
+    Kept separate from the module views because this handler is type-agnostic:
+    it stamps whichever per-stage columns the model happens to have, then uses
+    the configured chain to decide what comes next.
+    """
+    from transport_requisition.views import MODULE as TRANSPORT_MODULE
+    from transport_requisition.views import _stamp_stage
+
+    if req_type == TRANSPORT_MODULE:
+        _stamp_stage(requisition, stage, actor)
+
+    from portal_config import engine
+
+    following = engine.next_stage(req_type, stage.key)
+    requisition.status = following.key if following else getattr(
+        requisition.Status, 'APPROVED', 'approved',
+    )
+    requisition.save()
+
+    log_audit(req_type, requisition.pk, requisition.request_number, stage.key, actor)
+    send_approval_request(req_type, requisition, req_type, requisition.status)
+    notify_requester(req_type, requisition, req_type, requisition.status)
+    return requisition
 
 
 REQUISITION_LOOKUP = {}
 
 
 def _get_req_model(req_type):
+    from portal_config.engine import enabled_module_keys
     if req_type not in REQUISITION_LOOKUP:
-        if req_type == 'ict':
+        enabled = set(enabled_module_keys())
+        if req_type == 'ict' and 'ict' in enabled:
             from ict_requisition.models import ICTRequisition
             REQUISITION_LOOKUP[req_type] = ICTRequisition
-        elif req_type == 'transport':
+        elif req_type == 'transport' and 'transport' in enabled:
             from transport_requisition.models import TransportRequisition
             REQUISITION_LOOKUP[req_type] = TransportRequisition
-        elif req_type == 'internal':
+        elif req_type == 'internal' and 'internal' in enabled:
             from internal_requisition.models import InternalRequisition
             REQUISITION_LOOKUP[req_type] = InternalRequisition
     return REQUISITION_LOOKUP.get(req_type)
@@ -182,8 +248,10 @@ def retry_email(request, pk):
         if model:
             try:
                 requisition = model.objects.get(pk=log.req_id)
+                # The requisition's own status is the stage it is sitting at, so
+                # the reminder goes to whoever owns that stage.
                 send_approval_request(log.department, requisition, log.req_type,
-                                      'pending_second' if requisition.status in ['pending_second'] else 'pending_first')
+                                      requisition.status)
                 messages.success(request, f'Retry initiated for #{log.req_id}.')
             except model.DoesNotExist:
                 messages.error(request, 'Requisition not found.')
@@ -205,7 +273,7 @@ def retry_all_failed(request):
                 try:
                     requisition = model.objects.get(pk=log.req_id)
                     send_approval_request(log.department, requisition, log.req_type,
-                                          'pending_second' if requisition.status in ['pending_second'] else 'pending_first')
+                                          requisition.status)
                     retried += 1
                 except model.DoesNotExist:
                     pass
@@ -256,12 +324,17 @@ def send_reminder(request, req_type, pk):
         return redirect('dashboard')
 
     requisition = get_object_or_404(model, pk=pk)
-    if requisition.status == model.Status.PENDING_FIRST:
-        send_approval_request(req_type, requisition, req_type, 'pending_first')
-        messages.success(request, f'Approval request sent for #{requisition.pk}.')
-    elif requisition.status == model.Status.PENDING_SECOND:
-        send_approval_request(req_type, requisition, req_type, 'pending_second')
-        messages.success(request, f'Second-level approval request sent for #{requisition.pk}.')
-    else:
-        messages.info(request, f'Requisition #{requisition.pk} is not pending.')
+
+    # Remind whoever owns the stage this requisition is actually sitting at.
+    # The chain comes from configuration, so this does not need to know the
+    # module's stages by name.
+    from portal_config import engine
+
+    stage = engine.get_stage(req_type, requisition.status)
+    if stage is None or stage.is_terminal:
+        messages.info(request, f'Requisition #{requisition.pk} is not pending approval.')
+        return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+
+    send_approval_request(req_type, requisition, req_type, requisition.status)
+    messages.success(request, f'Approval request sent to {stage.name} for #{requisition.pk}.')
     return redirect(request.META.get('HTTP_REFERER', 'dashboard'))

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Requisition Portal{% endblock %}</title>
+    <title>{% block title %}BRAC IED Central Portal{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -54,16 +54,14 @@
         }
 
         .brand-icon{
-            width:46px;
-            height:46px;
-            border-radius:14px;
-            background:rgba(37,99,235,.12);
             display:flex;
             align-items:center;
             justify-content:center;
-            color:#60A5FA;
-            font-size:20px;
-            font-weight:700;
+        }
+        .brand-icon img{
+            height:auto;
+            max-height:40px;
+            width:auto;
         }
 
         .brand h4{
@@ -602,10 +600,11 @@
 <!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
     <div class="brand">
-        <div class="brand-icon">R</div>
+        <div class="brand-icon">
+            <img src="http://bracied.com/wp-content/uploads/2025/10/BRAC-IED-Color_PNG.png" alt="BRAC IED" style="width:100%; height:100%; object-fit:contain;">
+        </div>
         <div>
-            <h4>HR & Requisition</h4>
-            <small>Enterprise Portal</small>
+            <h4>BRAC IED</h4>
         </div>
     </div>
 
@@ -616,37 +615,63 @@
     <a class="nav-link {% if '/my-requisitions' in request.path %}active{% endif %}" href="{% url 'my_requisitions' %}">
         <span class="nav-icon">📋</span> My Requisitions
     </a>
-    <a class="nav-link {% if '/documentation' in request.path %}active{% endif %}" href="{% url 'documentation' %}">
-        <span class="nav-icon">📖</span> Documentation
-    </a>
-    <a class="nav-link" href="{% url 'documentation' %}?download=pdf">
-        <span class="nav-icon">⬇</span> Download PDF
-    </a>
 
     <div class="menu-title">Requisitions</div>
-    {% if user.is_admin or user.is_ict_admin or not user.is_transport_admin and not user.is_internal_admin and not user.is_hr_admin %}
+    {% if 'ict' in visible_modules %}
     <a class="nav-link {% if '/ict/' in request.path %}active{% endif %}" href="{% url 'ict_requisition:list' %}">
         <span class="nav-icon">💻</span> ICT Requisition
     </a>
     {% endif %}
-    {% if user.is_admin or user.is_transport_admin or not user.is_ict_admin and not user.is_internal_admin and not user.is_hr_admin %}
-    <a class="nav-link {% if '/transport/' in request.path and 'report' not in request.path %}active{% endif %}" href="{% url 'transport_requisition:list' %}">
+    {% if 'transport' in visible_modules %}
+    <a class="nav-link {% if '/transport/' in request.path and 'report' not in request.path and 'history' not in request.path and 'create' not in request.path %}active{% endif %}" href="{% url 'transport_requisition:list' %}">
         <span class="nav-icon">🚗</span> Transport Requisition
     </a>
+    {% if user.is_admin or user.is_transport_admin %}
+    <a class="nav-link sub-link {% if '/transport/history' in request.path %}active{% endif %}" href="{% url 'transport_requisition:history' %}">
+        <span class="nav-icon">🕓</span> Tracking History
+    </a>
     {% endif %}
+    {% endif %}
+    {% if 'transport' in visible_modules %}
     {% if user.is_admin or user.is_transport_admin %}
     <a class="nav-link sub-link {% if '/transport/report' in request.path %}active{% endif %}" href="{% url 'transport_requisition:report' %}">
         <span class="nav-icon">📄</span> Report
     </a>
     {% endif %}
-    {% if user.is_admin or user.is_internal_admin or not user.is_ict_admin and not user.is_transport_admin and not user.is_hr_admin %}
+    {% endif %}
+    {% if 'internal' in visible_modules %}
     <a class="nav-link {% if '/internal/' in request.path %}active{% endif %}" href="{% url 'internal_requisition:list' %}">
         <span class="nav-icon">📋</span> Internal Requisition
     </a>
     {% endif %}
+    {% if 'meetspace' in visible_modules %}
+    <a class="nav-link {% if '/meetspace/' in request.path %}active{% endif %}" href="{% url 'meetspace:dashboard' %}">
+        <span class="nav-icon">🚪</span> MeetSpace
+    </a>
+    {% endif %}
 
-    {% if user.is_admin %}
+    {% if hr_enabled %}
+    {% if user.is_admin or user.is_hr_admin %}
+    <div class="menu-title">Human Resources</div>
+    <a class="nav-link {% if '/hr/contracts' in request.path %}active{% endif %}" href="{% url 'contracts:dashboard' %}">
+        <span class="nav-icon">📄</span> Contracts
+    </a>
+    <a class="nav-link {% if '/hr/employees' in request.path %}active{% endif %}" href="{% url 'employees:employee_list' %}">
+        <span class="nav-icon">👤</span> Employees
+    </a>
+    <a class="nav-link {% if '/hr/payslip' in request.path %}active{% endif %}" href="{% url 'payslip:create_payslip' %}">
+        <span class="nav-icon">💵</span> Payslips
+    </a>
+    {% endif %}
+    {% endif %}
+
+    {% if user.is_admin or user.is_transport_admin %}
     <div class="menu-title">Administration</div>
+    <a class="nav-link {% if '/portal-config' in request.path %}active{% endif %}" href="{% url 'portal_config:module_list' %}">
+        <span class="nav-icon">🧩</span> Form Builder &amp; Workflows
+    </a>
+    {% endif %}
+    {% if user.is_admin %}
     <a class="nav-link {% if '/accounts/users' in request.path %}active{% endif %}" href="{% url 'user_list' %}">
         <span class="nav-icon">👥</span> User Management
     </a>

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load portal_config_tags %}
 {% block page_title %}Transport Requisitions{% endblock %}
 
 {% block content %}
@@ -38,43 +39,41 @@
                         <td class="text-muted small">{{ r.pick_up_date|date:"M d, Y" }} {{ r.pick_up_time|time:"H:i" }}</td>
                         <td>{% if r.driver %}{{ r.driver.name }}{% else %}<span class="text-muted small">—</span>{% endif %}</td>
                         <td>
-                            {% if r.status == 'pending_first' %}
-                                <span class="badge bg-warning"><i class="bi bi-hourglass-split me-1"></i>Pending 1st</span>
-                            {% elif r.status == 'pending_second' %}
-                                <span class="badge bg-info"><i class="bi bi-hourglass-split me-1"></i>Pending 2nd</span>
-                            {% elif r.status == 'approved' %}
-                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
-                            {% elif r.status == 'rejected' %}
-                                <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rejected</span>
-                            {% endif %}
+                            {% include 'transport_requisition/_status_badge.html' with status=r.status variant='sm' %}
                         </td>
                         <td class="text-end">
                             <div class="d-flex gap-1 justify-content-end">
                                 <a href="{% url 'transport_requisition:detail' r.id %}" class="btn btn-sm btn-outline-secondary" title="View">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                {% if r.status == 'pending_first' or r.status == 'pending_second' %}
+                                {% comment %}Action buttons follow the workflow configuration:
+                                   they appear only for stages this user is allowed to
+                                   act on, so adding a stage in the Form Builder makes
+                                   the buttons appear with no template change.{% endcomment %}
+                                {% with stage=stage_by_key|get_item:r.status %}
+                                {% if stage and r.status in my_stage_keys %}
                                     {% if user.is_admin or user.is_transport_admin %}
                                         <a href="{% url 'notifications:send_reminder' 'transport' r.id %}" class="btn btn-sm btn-outline-info" title="Send Email Reminder">
                                             <i class="bi bi-envelope"></i>
                                         </a>
                                     {% endif %}
-                                    {% if user.is_approver or user.is_admin %}
-                                        <a href="{% url 'transport_requisition:approve' r.id %}" class="btn btn-sm btn-success" title="Approve">
+                                    {% if stage.can_approve %}
+                                        <a href="{% url 'transport_requisition:approve' r.id %}" class="btn btn-sm btn-success" title="Approve at {{ stage.name }}">
                                             <i class="bi bi-check-lg"></i>
                                         </a>
-                                        <a href="{% url 'transport_requisition:reject' r.id %}" class="btn btn-sm btn-outline-danger" title="Reject">
+                                    {% endif %}
+                                    {% if stage.can_assign %}
+                                        <a href="{% url 'transport_requisition:assign_driver' r.id %}" class="btn btn-sm btn-primary" title="Assign vehicle and driver">
+                                            <i class="bi bi-truck"></i>
+                                        </a>
+                                    {% endif %}
+                                    {% if stage.can_decline %}
+                                        <a href="{% url 'transport_requisition:reject' r.id %}" class="btn btn-sm btn-outline-danger" title="Decline at {{ stage.name }}">
                                             <i class="bi bi-x-lg"></i>
                                         </a>
                                     {% endif %}
                                 {% endif %}
-                                {% if r.status == 'approved' and not r.driver %}
-                                    {% if user.is_admin or user.is_transport_admin %}
-                                        <a href="{% url 'transport_requisition:assign_driver' r.id %}" class="btn btn-sm btn-primary" title="Assign Driver">
-                                            <i class="bi bi-truck"></i>
-                                        </a>
-                                    {% endif %}
-                                {% endif %}
+                                {% endwith %}
                             </div>
                         </td>
                     </tr>

@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block page_title %}{{ module.name }} — Form Fields{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a href="{% url 'portal_config:module_list' %}">Configuration</a></li>
+                        <li class="breadcrumb-item active">{{ module.name }}</li>
+                    </ol>
+                </nav>
+                <h5 class="mb-0">Form fields</h5>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'portal_config:workflow' module.key %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-diagram-3 me-1"></i> Workflow
+                </a>
+                <a href="{% url 'portal_config:field_create' module.key %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i> Add field
+                </a>
+            </div>
+        </div>
+
+        <div class="alert alert-info small">
+            Fields marked <strong>stored in a column</strong> write to a real database
+            column, so reports and exports can use them. Unchecked fields added here
+            are saved in the requisition's extra data field — you can add new
+            questions without a code change.
+        </div>
+
+        {% for number, step_fields in steps %}
+        <div class="card mb-3">
+            <div class="card-header py-2">
+                <i class="bi bi-signpost-split me-1"></i>
+                <strong>Step {{ number }}</strong>
+                <span class="text-muted small ms-1">({{ step_fields|length }} field{{ step_fields|length|pluralize }})</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:60px;">Order</th>
+                            <th>Label</th>
+                            <th style="width:130px;">Key</th>
+                            <th style="width:130px;">Type</th>
+                            <th style="width:110px;">Required</th>
+                            <th style="width:120px;">Stored in</th>
+                            <th style="width:90px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for field in step_fields %}
+                        <tr>
+                            <td class="text-muted">{{ field.order }}</td>
+                            <td>
+                                {{ field.label }}
+                                {% if field.help_text %}<div class="small text-muted">{{ field.help_text }}</div>{% endif %}
+                            </td>
+                            <td><code class="small">{{ field.key }}</code></td>
+                            <td><span class="badge text-bg-light border">{{ field.get_field_type_display }}</span></td>
+                            <td>
+                                {% if field.required %}
+                                    <span class="badge text-bg-danger">Required</span>
+                                {% else %}
+                                    <span class="text-muted small">Optional</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if field.is_system %}
+                                    <span class="badge text-bg-success">Column</span>
+                                {% else %}
+                                    <span class="badge text-bg-warning">Extra data</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'portal_config:field_edit' module.key field.pk %}"
+                                   class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'portal_config:field_delete' module.key field.pk %}"
+                                   class="btn btn-sm btn-outline-danger" title="Remove">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-warning">
+            This module has no form fields yet. Use <strong>Add field</strong> to build its form.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

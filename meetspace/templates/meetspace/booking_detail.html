@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block page_title %}Booking #{{ b.pk }} — MeetSpace{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-calendar3 me-1"></i>{{ b.meeting_title }}</span>
+                <span class="badge {% if b.status == 'approved' %}bg-success{% elif b.status == 'pending' %}bg-warning text-dark{% elif b.status == 'rejected' or b.status == 'cancelled' %}bg-danger{% else %}bg-info{% endif %}">
+                    {{ b.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Requester</label>
+                        <div class="fw-semibold">{{ b.user.get_full_name }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small">Room</label>
+                        <div class="fw-semibold">Room {{ b.room.room_number }} (Floor {{ b.room.floor }})</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Date</label>
+                        <div>{{ b.date|date:"M d, Y" }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Time</label>
+                        <div>{{ b.start_time|time:"H:i" }} – {{ b.end_time|time:"H:i" }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small">Participants</label>
+                        <div>{{ b.number_of_participants }}</div>
+                    </div>
+                    {% if b.requirements %}
+                    <div class="col-12">
+                        <label class="form-label text-muted small">Requirements</label>
+                        <div class="bg-light rounded p-2">{{ b.requirements }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if b.status == 'alternatives' and b.user == user %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-1"></i>
+                    The HR admin offered alternative slots. 
+                    <a href="{% url 'meetspace:booking_accept_alternative' b.pk %}">Review them</a>.
+                </div>
+                {% endif %}
+
+                {% if b.cancellation_reason %}
+                <div class="alert alert-danger">
+                    <strong>Reason:</strong> {{ b.cancellation_reason }}
+                    {% if b.cancelled_by %}
+                    <div class="small mb-0">by {{ b.cancelled_by.get_full_name }} on {{ b.cancelled_at|date:"M d, Y H:i" }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <hr>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'meetspace:booking_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Back
+                    </a>
+
+                    {% if is_hr_admin and b.status == 'pending' %}
+                    <a href="{% url 'meetspace:booking_approve' b.pk %}" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i> Approve
+                    </a>
+                    <a href="{% url 'meetspace:booking_suggest_alternatives' b.pk %}" class="btn btn-info">
+                        <i class="bi bi-shuffle me-1"></i> Suggest alternatives
+                    </a>
+                    <a href="{% url 'meetspace:booking_reject' b.pk %}" class="btn btn-outline-danger">
+                        <i class="bi bi-x-lg me-1"></i> Reject
+                    </a>
+                    {% endif %}
+
+                    {% if b.status == 'approved' or b.status == 'pending' or b.status == 'alternatives' %}
+                        {% if is_hr_admin or b.user == user %}
+                        <a href="{% url 'meetspace:booking_cancel' b.pk %}" class="btn btn-outline-danger">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

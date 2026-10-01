@@ -1,0 +1,75 @@
+{% extends 'base_public.html' %}
+{% block page_title %}Request Submitted{% endblock %}
+{% block public_actions %}
+<a href="{% url 'transport_requisition:create' %}" class="pub-btn pub-btn-primary">
+    <i class="bi bi-truck"></i> Transport Request
+</a>
+<a href="{% url 'transport_requisition:track' %}" class="pub-btn pub-btn-ghost">
+    <i class="bi bi-search"></i> Track
+</a>
+<a href="{% url 'login' %}" class="pub-btn pub-btn-ghost">
+    <i class="bi bi-box-arrow-in-right"></i> Staff Sign In
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="steps">
+    <div class="step active"><div class="step-dot"><i class="bi bi-check-lg"></i></div> Submitted</div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-dot">2</div> First Approval</div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-dot">3</div> Final Approval</div>
+</div>
+
+<div class="text-center mb-4">
+    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+         style="width:66px;height:66px;background:#ECFDF5;color:#10B981;font-size:2rem;">
+        <i class="bi bi-check-lg"></i>
+    </div>
+    <h2 class="pub-title mb-1">Request Submitted</h2>
+    <p class="pub-sub mb-0">Your transport request has been received and sent for approval.</p>
+</div>
+
+<div class="text-center mb-4">
+    <div class="pub-section-label">Your Reference Number</div>
+    <div class="ref-number">{{ r.request_number }}</div>
+    <p class="pub-sub small mt-2 mb-0">Please quote this number when following up.</p>
+</div>
+
+<div class="mb-3">
+    <div class="pub-section-label">Summary</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <tbody>
+                <tr><td class="text-muted" style="width:34%;">Name</td><td class="fw-semibold">{{ r.full_name }}</td></tr>
+                <tr><td class="text-muted">Email</td><td>{{ r.email_address }}</td></tr>
+                <tr><td class="text-muted">Designation / PIN</td><td>{{ r.designation }} / {{ r.pin }}</td></tr>
+                <tr><td class="text-muted">Destination</td><td>{{ r.destination }}</td></tr>
+                <tr><td class="text-muted">Pick-up</td><td>{{ r.pick_up_date }} at {{ r.pick_up_time }} &mdash; {{ r.pick_up_location }}</td></tr>
+                <tr><td class="text-muted">Drop-off</td><td>{{ r.drop_off_date }} at {{ r.drop_off_time }} &mdash; {{ r.drop_off_location }}</td></tr>
+                <tr><td class="text-muted">Vehicle / Passengers</td><td>{{ r.get_vehicle_type_display }} &middot; {{ r.num_passengers }}</td></tr>
+                <tr><td class="text-muted">Status</td>
+                    <td><span class="badge rounded-pill text-bg-warning">{{ r.get_status_display }}</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-info d-flex align-items-start mb-4 py-2 px-3 small">
+    <i class="bi bi-envelope me-2 mt-1"></i>
+    <div>Status updates are emailed to <strong>{{ r.email_address }}</strong>. You can also check
+    progress at any time from the Track page.</div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 pt-2 border-top">
+    <a href="{% url 'transport_requisition:track' %}" class="pub-btn pub-btn-primary">
+        <i class="bi bi-search"></i> Track This Request
+    </a>
+    <a href="{% url 'transport_requisition:create' %}" class="pub-btn pub-btn-ghost">
+        <i class="bi bi-truck"></i> Submit Another Request
+    </a>
+    <a href="{% url 'home' %}" class="pub-btn pub-btn-ghost ms-auto">
+        <i class="bi bi-house"></i> Home
+    </a>
+</div>
+{% endblock %}

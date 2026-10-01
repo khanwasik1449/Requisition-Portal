@@ -1,213 +1,424 @@
 {% extends base_template|default:'base.html' %}
-{% block page_title %}New Transport Requisition{% endblock %}
+{% block page_title %}BRAC IED Vehicle Requisition Form{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card">
-            <div class="card-header d-flex align-items-center gap-2">
-                <i class="bi bi-plus-circle" style="color:#d97706;"></i> Transport Requisition Form
-            </div>
-            <div class="card-body">
-                <form method="POST">
-                    {% csrf_token %}
-                    {% if error %}
-                        <div class="alert alert-danger py-2 small">{{ error }}</div>
-                    {% endif %}
+{% load portal_config_tags %}
+{% if base_template %}<div class="card">
+    <div class="card-header"><strong>BRAC IED Vehicle Requisition Form</strong></div>
+    <div class="card-body">
+{% endif %}
 
-                    <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="bi bi-person me-1"></i> Personal Information</h6>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Email Address <span class="text-danger">*</span></label>
-                            <input type="email" name="email_address" class="form-control" value="{{ request.user.email|default:'' }}" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Your Name <span class="text-danger">*</span></label>
-                            <input type="text" name="full_name" class="form-control" value="{{ request.user.get_full_name|default:'' }}" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Mobile Number <span class="text-danger">*</span></label>
-                            <input type="text" name="mobile_number" class="form-control" placeholder="e.g. +254 7XX XXX XXX" required>
-                        </div>
-                    </div>
-                    <div class="row mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label">Designation <span class="text-danger">*</span></label>
-                            <input type="text" name="designation" class="form-control" placeholder="e.g. Software Engineer" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">PIN <span class="text-danger">*</span></label>
-                            <input type="text" name="pin" class="form-control" placeholder="Staff PIN number" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">How many Passengers <span class="text-danger">*</span></label>
-                            <input type="number" name="num_passengers" class="form-control" value="1" min="1" required>
-                        </div>
-                    </div>
+<form method="POST" novalidate id="vform">
+    {% csrf_token %}
 
-                    <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="bi bi-truck me-1"></i> Trip Details</h6>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Vehicle Type <span class="text-danger">*</span></label>
-                            <select name="vehicle_type" class="form-select" id="vehicleType" required onchange="document.getElementById('otherVehicle').style.display=this.value=='other'?'block':'none'">
-                                <option value="sedan">Sedan Car (3 Users)</option>
-                                <option value="noah">Micro Noah (7 Users)</option>
-                                <option value="hiace_11">Micro Hi-Ace (11 Users)</option>
-                                <option value="hiace_14">Micro Hi-Ace (14 Users)</option>
-                                <option value="delivery_van">Delivery Van (Covered Van, Pickup etc.)</option>
-                                <option value="other">Other</option>
-                            </select>
-                            <div id="otherVehicle" style="display:none; margin-top:8px;">
-                                <input type="text" name="vehicle_type_other" class="form-control" placeholder="Please specify vehicle type">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Pick-up Date <span class="text-danger">*</span></label>
-                            <input type="date" name="pick_up_date" class="form-control" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Pick-up Time <span class="text-danger">*</span></label>
-                            <input type="time" name="pick_up_time" class="form-control" required>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Pick-up Location <span class="text-danger">*</span></label>
-                            <input type="text" name="pick_up_location" class="form-control" placeholder="e.g. Office, Home address" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Destination <span class="text-danger">*</span></label>
-                            <input type="text" name="destination" class="form-control" placeholder="e.g. Nairobi CBD" required>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Drop-off Date <span class="text-danger">*</span></label>
-                            <input type="date" name="drop_off_date" class="form-control" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Drop-off Time <span class="text-danger">*</span></label>
-                            <input type="time" name="drop_off_time" class="form-control" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Drop-off Location <span class="text-danger">*</span></label>
-                            <input type="text" name="drop_off_location" class="form-control" placeholder="e.g. Office, Event venue" required>
-                        </div>
-                    </div>
+    {# ---- Progress rail ------------------------------------------------ #}
+    <ol class="vs-rail" id="vsRail">
+        {% for title in step_titles %}
+        <li class="vs-node" data-step="{{ forloop.counter }}">
+            <button type="button" class="vs-node-btn" data-goto="{{ forloop.counter }}">
+                <span class="vs-dot">
+                    <span class="vs-num">{{ forloop.counter }}</span>
+                    <i class="bi bi-check-lg vs-tick"></i>
+                </span>
+                <span class="vs-label">{{ title }}</span>
+            </button>
+        </li>
+        {% endfor %}
+    </ol>
 
-                    <h6 class="fw-bold mb-3" style="color:#d97706;"><i class="bi bi-journal-text me-1"></i> Additional Information</h6>
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label class="form-label">Travelling Reason <span class="text-danger">*</span></label>
-                            <textarea name="travelling_reason" class="form-control" rows="2" placeholder="Why are you travelling?" required></textarea>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Project Name & Code <span class="text-danger">*</span></label>
-                            <select name="project_name_code" class="form-select" id="projectCode" required onchange="document.getElementById('otherProject').style.display=this.value=='other'?'block':'none'">
-                                <option value="">-- Select Project --</option>
-                                <option value="BIED-0001 — BIED General - BRAC IED Mother project">BIED-0001 — BIED General - BRAC IED Mother project</option>
-                                <option value="BIED-0002 (M.ed) — Academic (MEd)">BIED-0002 (M.ed) — Academic (MEd)</option>
-                                <option value="BIED-0003 (ECD) — Academic (ECD)">BIED-0003 (ECD) — Academic (ECD)</option>
-                                <option value="BIED-0056 (MHPSS) — Academic (MHPSS)">BIED-0056 (MHPSS) — Academic (MHPSS)</option>
-                                <option value="BIED-0004 — Short Course">BIED-0004 — Short Course</option>
-                                <option value="BIED-0040 — Day Care in BRACU">BIED-0040 — Day Care in BRACU</option>
-                                <option value="BIED-0042 — Microfinance NEET Project">BIED-0042 — Microfinance NEET Project</option>
-                                <option value="BIED-0006 — Play 2.0 LEGO">BIED-0006 — Play 2.0 LEGO</option>
-                                <option value="BIED-0008 — British Academy Research">BIED-0008 — British Academy Research</option>
-                                <option value="BIED-0010 — Bill & Melinda Gates Foundation">BIED-0010 — Bill & Melinda Gates Foundation</option>
-                                <option value="BIED-0049 — VROOM Climate Change & Childcare">BIED-0049 — VROOM Climate Change & Childcare</option>
-                                <option value="BIED-0034 — British Academy: BIGD">BIED-0034 — British Academy: BIGD</option>
-                                <option value="BIED-0053 — PTL Play to Learn Phase 2">BIED-0053 — PTL Play to Learn Phase 2</option>
-                                <option value="BIED-0051 — Homebased Childcare">BIED-0051 — Homebased Childcare</option>
-                                <option value="BIED-0005 — BRAC Youth Platform">BIED-0005 — BRAC Youth Platform</option>
-                                <option value="BIED-0007 — Framework Bangladesh Phase 2">BIED-0007 — Framework Bangladesh Phase 2</option>
-                                <option value="BIED-0021 — SELP">BIED-0021 — SELP</option>
-                                <option value="BIED-0009 — PEDAL Research">BIED-0009 — PEDAL Research</option>
-                                <option value="BIED-0022 — HPL:HCMP">BIED-0022 — HPL:HCMP</option>
-                                <option value="BIED-0025 — WB:SBCC">BIED-0025 — WB:SBCC</option>
-                                <option value="BIED-0026 — Unicef: VACW">BIED-0026 — Unicef: VACW</option>
-                                <option value="BIED-0024 — National University: Mental Health">BIED-0024 — National University: Mental Health</option>
-                                <option value="BIED-0027 — Porticus Advocacy: BEP">BIED-0027 — Porticus Advocacy: BEP</option>
-                                <option value="BIED-0028 — BAINDUM: UDP">BIED-0028 — BAINDUM: UDP</option>
-                                <option value="BIED-0030 — W.B:NEET Plan Bangladesh">BIED-0030 — W.B:NEET Plan Bangladesh</option>
-                                <option value="BIED-0031 — Ayesha Abedin Foundation">BIED-0031 — Ayesha Abedin Foundation</option>
-                                <option value="BIED-0032 — Accelerator Model:BRAC:BEP">BIED-0032 — Accelerator Model:BRAC:BEP</option>
-                                <option value="BIED-0033 — GAC: CN High Commission">BIED-0033 — GAC: CN High Commission</option>
-                                <option value="BIED-0036 — TPD: UNCHR">BIED-0036 — TPD: UNCHR</option>
-                                <option value="BIED-0037 — Unicef: P.P.">BIED-0037 — Unicef: P.P.</option>
-                                <option value="BIED-0038 — UNICEF Adolescent & Youth">BIED-0038 — UNICEF Adolescent & Youth</option>
-                                <option value="BIED-0041 — BRAC Play Lab">BIED-0041 — BRAC Play Lab</option>
-                                <option value="BIED-0039 — Ed-Tech">BIED-0039 — Ed-Tech</option>
-                                <option value="BIED-0048 — ECDAN Childcare Research">BIED-0048 — ECDAN Childcare Research</option>
-                                <option value="BIED-0052 — Higher Education HEAT">BIED-0052 — Higher Education HEAT</option>
-                                <option value="other">Other (not listed)</option>
-                            </select>
-                            <div id="otherProject" style="display:none; margin-top:8px;">
-                                <input type="text" name="project_name_code_other" class="form-control" placeholder="Type project name & code">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Budget Code (with Project code) <span class="text-danger">*</span></label>
-                            <select name="budget_code" class="form-select" id="budgetCode" required onchange="document.getElementById('otherBudget').style.display=this.value=='other'?'block':'none'">
-                                <option value="">-- Select Budget Code --</option>
-                                <option value="0001-403030101">0001-403030101</option>
-                                <option value="0002-401030101">0002-401030101</option>
-                                <option value="0003-401030101">0003-401030101</option>
-                                <option value="0004-401030101">0004-401030101</option>
-                                <option value="0006-581111-01">0006-581111-01</option>
-                                <option value="0008-581111-01">0008-581111-01</option>
-                                <option value="0010-581111-01">0010-581111-01</option>
-                                <option value="0023-581111-04">0023-581111-04</option>
-                                <option value="0025-581111-01">0025-581111-01</option>
-                                <option value="0028-581111-01">0028-581111-01</option>
-                                <option value="0042-581111-01">0042-581111-01</option>
-                                <option value="0035-581111-01">0035-581111-01</option>
-                                <option value="0034-581111-01">0034-581111-01</option>
-                                <option value="0036-581111-01">0036-581111-01</option>
-                                <option value="0037-581111-01">0037-581111-01</option>
-                                <option value="0038-581111-01">0038-581111-01</option>
-                                <option value="0038-581111-04">0038-581111-04</option>
-                                <option value="0038-581313-05">0038-581313-05</option>
-                                <option value="0039-581111-02">0039-581111-02</option>
-                                <option value="0010-581111-05">0010-581111-05</option>
-                                <option value="581111-01">581111-01</option>
-                                <option value="0049-581111-01">0049-581111-01</option>
-                                <option value="other">Other Manual</option>
-                            </select>
-                            <div id="otherBudget" style="display:none; margin-top:8px;">
-                                <input type="text" name="budget_code_other" class="form-control" placeholder="Type budget code">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <div class="form-check mt-4">
-                                <input class="form-check-input" type="checkbox" name="supervisor_acknowledged" id="supervisor_acknowledged">
-                                <label class="form-check-label fw-semibold" for="supervisor_acknowledged">
-                                    Is your Supervisor Acknowledged? <span class="text-danger">*</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label">Any Comments / Remarks</label>
-                        <textarea name="comments_remarks" class="form-control" rows="2" placeholder="Additional notes..."></textarea>
-                    </div>
+    <div class="vs-bar"><span class="vs-bar-fill" id="vsBarFill"></span></div>
 
-                    <hr>
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send me-1"></i> Submit Request
-                        </button>
-                        <a href="{% if user.is_authenticated %}{% url 'transport_requisition:list' %}{% else %}{% url 'home' %}{% endif %}" class="btn btn-outline-secondary">
-                            <i class="bi bi-x me-1"></i> Cancel
-                        </a>
-                    </div>
-                </form>
-            </div>
+    <p class="vs-count">Step <span id="vsNow">1</span> of {{ step_count }}</p>
+
+    {% comment %}
+    ---- Steps --------------------------------------------------------
+    Rendered from the Form Builder configuration: `steps` is built in the
+    view by grouping the module's active FormField rows by their `step`
+    value, so regrouping or adding a question changes this form with no
+    template edit.
+    {% endcomment %}
+    {% for step in steps %}
+    <div class="vs-step" data-step="{{ step.number }}" {% if not forloop.first %}hidden{% endif %}>
+        {% if forloop.first %}
+        <div class="vs-intro">
+            <p>Please fill this form carefully. Use the correct budget code for your
+               department &mdash; an incorrect code can cancel the booking.</p>
         </div>
+
+        <details class="vs-note">
+            <summary><i class="bi bi-shield-check"></i> DOS AND DON'TS FOR SAFE JOURNEY</summary>
+            <div class="vs-note-body">
+                <p class="fw-semibold mb-1">Your responsibility</p>
+                <ul>{% for n in safety_notes %}<li>{{ n }}</li>{% endfor %}</ul>
+                <p class="fw-semibold mb-1 mt-3">The driver will</p>
+                <ul>
+                    <li>Not take food, smoke, drink or drugs while driving.</li>
+                    <li>Not use a mobile phone while driving.</li>
+                    <li>Not gossip with passengers or play music or video.</li>
+                    <li>Take a 10&ndash;15 minute break every 2 hours on long journeys.</li>
+                    <li>Avoid travelling at midnight unless it is an emergency.</li>
+                    <li>Behave in a gender-friendly manner.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details class="vs-note">
+            <summary><i class="bi bi-journal-check"></i> VENDOR NOTES</summary>
+            <div class="vs-note-body">
+                <ul>{% for n in vendor_notes %}<li>{{ n }}</li>{% endfor %}</ul>
+            </div>
+        </details>
+        {% else %}
+        <h3 class="vs-title">{{ step.title }}</h3>
+        {% endif %}
+        <div class="vs-rule"></div>
+
+        {% for field in step.fields %}
+            {% include 'portal_config/field_input.html' %}
+        {% endfor %}
+
+        {% if forloop.last %}
+        <div class="vs-review" id="vsReview"></div>
+
+        <p class="vs-wait">
+            After submitting, please wait up to 15 minutes to receive the
+            &ldquo;Car Requisition Received&rdquo; email. You will also be told the
+            driver's name by email shortly. If nothing arrives, you may submit again.
+        </p>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {# ---- Summary (always visible, whichever step is showing) ---------- #}
+    {% if errors %}
+    <div class="alert alert-danger vs-summary" role="alert">
+        <strong>{{ errors|length }} field{{ errors|length|pluralize }} need{{ errors|length|pluralize:"s," }} fixing:</strong>
+        <ul class="mb-0 mt-2">
+            {% for field, message in errors.items %}<li>{{ message }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {# ---- Nav ---------------------------------------------------------- #}
+    <div class="vs-nav">
+        <button type="button" class="{% if base_template %}btn btn-outline-secondary{% else %}pub-btn pub-btn-ghost{% endif %}" id="vsBack" hidden>
+            Back
+        </button>
+        <button type="button" class="{% if base_template %}btn btn-primary{% else %}pub-btn pub-btn-primary{% endif %}" id="vsNext">
+            Next
+        </button>
+        <button type="submit" class="{% if base_template %}btn btn-primary{% else %}pub-btn pub-btn-primary{% endif %}" id="vsSubmit" hidden>
+            Submit
+        </button>
+    </div>
+
+    <p class="vs-help">
+        For any help, email <a href="mailto:{{ help_email }}">{{ help_email }}</a>
+        or call <a href="tel:{{ help_phone }}">{{ help_phone }}</a>.
+    </p>
+</form>
+
+{% if base_template %}
     </div>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_head %}
+{{ block.super }}
+<style>
+.vs-req{ color:#DC2626; font-weight:700; margin-left:2px; }
+
+/* Progress rail */
+.vs-rail{
+    display:flex; align-items:flex-start; list-style:none;
+    margin:0 0 14px; padding:0; gap:0; counter-reset:vs;
+}
+.vs-node{ flex:1 1 0; min-width:0; position:relative; }
+.vs-node-btn{
+    display:flex; flex-direction:column; align-items:center; gap:7px;
+    background:none; border:0; padding:0; width:100%; cursor:pointer;
+    font:inherit; color:inherit;
+}
+.vs-dot{
+    width:32px; height:32px; border-radius:50%;
+    background:#fff; border:2px solid #CBD5E1; color:#94A3B8;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.82rem; font-weight:700; position:relative; z-index:2;
+    transition:.15s ease;
+}
+.vs-tick{ display:none; font-size:.95rem; }
+/* Connector line between nodes */
+.vs-node:not(:last-child)::after{
+    content:''; position:absolute; top:16px; left:50%; right:-50%;
+    height:2px; background:#E2E8F0; z-index:1;
+}
+.vs-label{
+    font-size:.72rem; font-weight:600; color:#94A3B8; text-align:center;
+    line-height:1.3; padding:0 4px;
+}
+.vs-node.done .vs-dot{ background:#0EA5E9; border-color:#0EA5E9; color:#fff; }
+.vs-node.done .vs-label{ color:#0369A1; }
+.vs-node.done:not(:last-child)::after{ background:#0EA5E9; }
+.vs-node.active .vs-dot{
+    background:var(--primary,#2563EB); border-color:var(--primary,#2563EB);
+    color:#fff; box-shadow:0 0 0 4px rgba(37,99,235,.14);
+}
+.vs-node.active .vs-label{ color:#0F172A; }
+.vs-node.done .vs-num{ display:none; }
+.vs-node.done .vs-tick{ display:block; }
+
+.vs-bar{ height:4px; background:#E2E8F0; border-radius:99px; overflow:hidden; }
+.vs-bar-fill{ display:block; height:100%; width:0; background:var(--primary,#2563EB); transition:width .2s ease; }
+.vs-count{ font-size:.75rem; color:#64748B; margin:8px 0 0; }
+
+.vs-intro{ font-size:.92rem; color:#475569; margin-bottom:14px; }
+.vs-note{ border:1px solid #E2E8F0; border-radius:12px; margin-bottom:8px; background:#F8FAFC; }
+.vs-note > summary{ cursor:pointer; padding:10px 15px; font-size:.87rem; font-weight:600; list-style:none; }
+.vs-note > summary::-webkit-details-marker{ display:none; }
+.vs-note > summary::before{ content:'\25B8'; display:inline-block; margin-right:9px; color:#64748B; transition:transform .15s ease; }
+.vs-note[open] > summary::before{ transform:rotate(90deg); }
+.vs-note-body{ padding:0 15px 13px 34px; font-size:.84rem; color:#475569; }
+.vs-note-body ul{ padding-left:18px; margin-bottom:0; }
+.vs-note-body li{ margin-bottom:2px; }
+
+.vs-title{ font-size:1.05rem; font-weight:700; margin:22px 0 0; letter-spacing:-.01em; }
+.vs-rule{ height:1px; background:#E2E8F0; margin:10px 0 18px; }
+.vs-field{ margin-bottom:20px; }
+.vs-field .form-label{ font-weight:600; font-size:.9rem; margin-bottom:5px; }
+.vs-field .form-control, .vs-field .form-select{ border-radius:10px; }
+.vs-field .form-text{ font-size:.79rem; }
+
+.vs-important{
+    background:#FFFBEB; border:1px solid #FDE68A; border-left:3px solid #F59E0B;
+    border-radius:8px; padding:11px 14px; font-size:.85rem; color:#78350F; margin-bottom:18px;
+}
+
+/* Review summary on the last step */
+.vs-review{
+    background:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px;
+    padding:14px 16px; margin:6px 0 18px; font-size:.86rem;
+}
+.vs-review h4{ font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#64748B; margin:0 0 10px; }
+.vs-review dl{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:0; }
+.vs-review dt{ color:#64748B; font-weight:600; }
+.vs-review dd{ margin:0; color:#0F172A; }
+
+.vs-nav{ display:flex; gap:10px; margin-top:6px; }
+.vs-summary{ font-size:.87rem; border-radius:10px; }
+.vs-summary ul{ padding-left:18px; }
+.vs-help{ font-size:.83rem; color:#64748B; margin:18px 0 0; }
+.vs-help a{ font-weight:600; }
+.vs-wait{ font-size:.8rem; color:#64748B; margin:0 0 6px; }
+
+@media (max-width:768px){
+    .vs-label{ display:none; }
+    .vs-title{ margin-top:16px; }
+    .vs-nav .btn, .vs-nav .pub-btn{ flex:1; justify-content:center; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+(function () {
+  var form = document.getElementById('vform');
+  if (!form) return;
+
+  var steps  = Array.prototype.slice.call(form.querySelectorAll('.vs-step'));
+  var nodes  = Array.prototype.slice.call(document.querySelectorAll('.vs-node'));
+  var back   = document.getElementById('vsBack');
+  var next   = document.getElementById('vsNext');
+  var submit = document.getElementById('vsSubmit');
+  var fill   = document.getElementById('vsBarFill');
+  var now    = document.getElementById('vsNow');
+  var review = document.getElementById('vsReview');
+  var TOTAL  = steps.length;
+  var current = {{ start_step|default:1 }};
+  var submitting = false;
+
+  function show(n) {
+    current = Math.min(Math.max(n, 1), TOTAL);
+    steps.forEach(function (s) {
+      s.hidden = Number(s.dataset.step) !== current;
+    });
+    nodes.forEach(function (node) {
+      var i = Number(node.dataset.step);
+      node.classList.toggle('active', i === current);
+      node.classList.toggle('done', i < current);
+    });
+    back.hidden   = current === 1;
+    next.hidden   = current === TOTAL;
+    submit.hidden = current !== TOTAL;
+    fill.style.width = ((current / TOTAL) * 100) + '%';
+    now.textContent = current;
+
+    if (current === TOTAL) buildReview();
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Check only the fields on the step being left. A problem stops the move and
+  // the first bad field takes focus, so the user is told what to fix in place.
+  function validateStep(n) {
+    var scope = form.querySelector('.vs-step[data-step="' + n + '"]');
+    if (!scope) return true;
+    var bad = null;
+
+    scope.querySelectorAll('[required]').forEach(function (el) {
+      var wrap = el.closest('.vs-field') || el.parentNode;
+      var feedback = wrap.querySelector('.invalid-feedback');
+      var empty = !el.value.trim();
+
+      if (el.type === 'checkbox') empty = !el.checked;
+      if (el.type === 'email' && !empty && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(el.value)) empty = true;
+
+      if (empty) {
+        el.classList.add('is-invalid');
+        // Create the feedback node on demand: a field the server has not yet
+        // complained about still needs somewhere to print its message.
+        if (!feedback) {
+          feedback = document.createElement('div');
+          feedback.className = 'invalid-feedback';
+          el.insertAdjacentElement('afterend', feedback);
+        }
+        feedback.textContent = el.dataset.msg || 'This field is required.';
+        feedback.classList.remove('d-none');
+        if (!bad) bad = el;
+      } else {
+        el.classList.remove('is-invalid');
+        if (feedback && !feedback.dataset.server) feedback.classList.add('d-none');
+      }
+    });
+
+    if (bad) {
+      bad.focus();
+      bad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+    return true;
+  }
+
+  next.addEventListener('click', function () {
+    if (validateStep(current)) show(current + 1);
+  });
+  back.addEventListener('click', function () { show(current - 1); });
+  nodes.forEach(function (node) {
+    node.querySelector('[data-goto]').addEventListener('click', function () {
+      var target = Number(this.dataset.goto);
+      if (target < current) { show(target); return; }
+      for (var i = current; i < target; i++) {
+        if (!validateStep(i)) return;
+      }
+      show(target);
+    });
+  });
+
+  // "Other" vehicle free text.
+  var vehicle = form.querySelector('#f-vehicle_type');
+  var otherVehicle = form.querySelector('#f-vehicle_type_other');
+  if (vehicle && otherVehicle) {
+    vehicle.addEventListener('change', function () {
+      otherVehicle.classList.toggle('d-none', vehicle.value !== 'other');
+    });
+  }
+
+  // Drop-off cannot precede pick-up.
+  var pickDate = form.querySelector('#f-pick_up_date');
+  var dropDate = form.querySelector('#f-drop_off_date');
+  if (pickDate && dropDate) {
+    pickDate.addEventListener('change', function () {
+      dropDate.min = pickDate.value || dropDate.min;
+      if (dropDate.value && dropDate.value < pickDate.value) dropDate.value = pickDate.value;
+    });
+  }
+
+  // Seat count against vehicle capacity.
+  var passengers = form.querySelector('#f-num_passengers');
+  var note = form.querySelector('[data-capacity-note]');
+  var CAPACITY = { sedan: 3, noah: 7, hiace_11: 11, hiace_14: 14 };
+  if (vehicle && passengers && note) {
+    var check = function () {
+      var seats = CAPACITY[vehicle.value];
+      var n = parseInt(passengers.value, 10);
+      if (!seats) { note.textContent = 'Seats are checked against your vehicle choice.'; note.className = 'form-text'; return; }
+      if (!n) { note.textContent = seats + ' seats in this vehicle.'; note.className = 'form-text'; return; }
+      if (n > seats) {
+        note.textContent = 'This vehicle seats ' + seats + '. Pick a larger one for ' + n + ' people.';
+        note.className = 'form-text text-warning fw-semibold';
+      } else {
+        note.textContent = seats + ' seats, ' + n + ' requested. Fits.';
+        note.className = 'form-text text-success';
+      }
+    };
+    vehicle.addEventListener('change', check);
+    passengers.addEventListener('input', check);
+    check();
+  }
+
+  // Budget codes belong to the chosen project.
+  var project = form.querySelector('#f-project_name_code');
+  var budget  = form.querySelector('#f-budget_code');
+  var budgetHint = form.querySelector('[data-budget-hint]');
+  var MAP = {{ project_budgets|safe }};
+  function fillBudgets() {
+    var codes = MAP[project.value] || [];
+    var keep = budget.value;
+    budget.innerHTML = '<option value="">-- Select budget code --</option>';
+    codes.forEach(function (code) {
+      var opt = document.createElement('option');
+      opt.value = code; opt.textContent = code;
+      budget.appendChild(opt);
+    });
+    if (codes.indexOf(keep) !== -1) budget.value = keep;
+    if (budgetHint) {
+      budgetHint.textContent = codes.length
+        ? codes.length + ' code' + (codes.length === 1 ? '' : 's') + ' available for this project.'
+        : 'Select a project on the previous step to see its budget codes.';
+    }
+  }
+  if (project && budget) { project.addEventListener('change', fillBudgets); fillBudgets(); }
+
+  // Read-back of everything entered, so the last step can be checked before
+  // sending. Built from the fields the server rendered rather than a fixed
+  // list, so a field added in the Form Builder shows up here automatically.
+  function buildReview() {
+    if (!review) return;
+    var html = '<h4>Check your details</h4><dl>';
+    Array.prototype.forEach.call(
+      form.querySelectorAll('[data-field]'),
+      function (wrap) {
+        var el = wrap.querySelector('input, select, textarea');
+        if (!el) return;
+        var label = wrap.querySelector('.form-label');
+        var value = el.type === 'checkbox' ? (el.checked ? 'Yes' : 'No') : el.value;
+        if (el.options && el.selectedIndex >= 0) value = el.options[el.selectedIndex].text;
+        if (!value) return;
+        var name = label ? label.textContent.replace(/\s*\*\s*$/, '').trim() : wrap.dataset.field;
+        html += '<dt>' + name.replace(/</g, '&lt;')
+             + '</dt><dd>' + String(value).replace(/</g, '&lt;') + '</dd>';
+      }
+    );
+    review.innerHTML = html + '</dl>';
+  }
+
+  // Guard against a double click producing two requisitions.
+  //
+  // This must hang off the form's 'submit' event, never the button's 'click'
+  // event. A submit button's activation behaviour — the step that actually
+  // submits the form — runs *after* the click listeners, and it bails out
+  // immediately if the button is disabled by then. Disabling on click
+  // therefore cancels the submission and the form never posts.
+  // On 'submit' the entry list has already been built, so disabling is safe.
+  form.addEventListener('submit', function (e) {
+    if (e.defaultPrevented) return;   // something else already handled it
+    if (submitting) { e.preventDefault(); return; }  // second submit: drop it
+    submitting = true;
+    submit.disabled = true;
+    submit.textContent = 'Submitting…';
+  });
+
+  show(current);
+})();
+</script>
 {% endblock %}

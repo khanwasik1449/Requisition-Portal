@@ -25,14 +25,16 @@
 
                 <div class="card shadow-sm mb-3">
                     <div class="card-body text-center py-4">
-                        {% if r.status == 'pending_first' or r.status == 'pending_second' %}
+                        {% if r.status == 'pending_first' or r.status == 'pending_grants' or r.status == 'pending_transport' %}
                             <div class="status-icon mb-2">⏳</div>
                             <h2 class="h5 mb-1">Pending Approval</h2>
                             <p class="text-muted small mb-0">
                                 {% if r.status == 'pending_first' %}
-                                    Awaiting first-level approval
+                                    Awaiting supervisor approval
+                                {% elif r.status == 'pending_grants' %}
+                                    Approved by supervisor, awaiting Grants approval
                                 {% else %}
-                                    First-level approved, awaiting second-level approval
+                                    Approved by Grants, awaiting transport admin
                                 {% endif %}
                             </p>
                         {% elif r.status == 'approved' %}
@@ -92,7 +94,7 @@
                 </div>
 
                 <div class="text-center mt-4">
-                    <p class="text-muted small mb-0">Requisition Portal &bull; BRAC</p>
+                    <p class="text-muted small mb-0">BRAC IED Central Portal</p>
                 </div>
             </div>
         </div>
