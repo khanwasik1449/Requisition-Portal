@@ -5,6 +5,72 @@ Development. Covers vehicle transport, meeting room bookings, ICT equipment,
 office supplies and payslips — all behind configurable, database-driven
 approval workflows that an administrator can reshape without editing code.
 
+## Screenshots
+
+### Public homepage
+
+Cards are ordered by intent: request actions first, then external forms, then
+tracking, then staff sign-in.
+
+![Public homepage](docs/screenshots/01-public-home.png)
+
+### Transport requisition
+
+A public five-step wizard — no login required.
+
+![Transport request form](docs/screenshots/02-transport-form.png)
+
+### Meeting room booking
+
+Also public, with the room and slot picked in one pass.
+
+![Meeting room booking](docs/screenshots/03-meetspace-booking.png)
+
+Track your own booking by email address:
+
+![Meeting room tracking](docs/screenshots/04-meetspace-track.png)
+
+### Staff sign-in
+
+![Staff sign-in](docs/screenshots/05-login.png)
+
+### Staff dashboard
+
+Role-aware counters and management cards.
+
+![Dashboard](docs/screenshots/06-dashboard.png)
+
+### Form Builder
+
+Turn modules on and off, or hide them from the menu, without touching
+`settings.py`.
+
+![Form Builder](docs/screenshots/07-form-builder.png)
+
+### Workflow editor
+
+Reorder approval stages, change which role acts at each one, and decide what
+each stage is allowed to do. This is the screen that makes the transport chain
+configurable — here Grants is set to `approve, decline, amend`, which is what
+lets it correct the project and budget codes.
+
+![Workflow editor](docs/screenshots/08-workflow-editor.png)
+
+### Field editor
+
+Add, relabel, reorder, or hide questions. New fields with no database column
+are stored as JSON and need no migration.
+
+![Field list](docs/screenshots/09-field-list.png)
+
+### Transport requests
+
+![Transport requests](docs/screenshots/10-transport-list.png)
+
+### Meeting rooms
+
+![Meeting rooms](docs/screenshots/11-meetspace-rooms.png)
+
 ## Features
 
 ### Transport Requisition

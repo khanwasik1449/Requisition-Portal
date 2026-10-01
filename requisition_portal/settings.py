@@ -82,7 +82,7 @@ EXTERNAL_FORMS = [
         'key': 'mail_service',
         'title': 'Mail Service',
         'description': 'BRAC University email with an additional 50 GB of cloud storage '
-                       '&mdash; for @bracu.ac.bd addresses only.',
+                       '— for @bracu.ac.bd addresses only.',
         'url': 'https://signup.microsoft.com/signup?skug=Education'
                '&StepsData.Email=sdfsd%40bracu.ac.bd'
                '&sku=314c4481-f395-4525-be8b-2ec4bb1e9d91',
