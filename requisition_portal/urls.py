@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 from portal_config.engine import enabled_module_keys
 from portal_config.routing import module_include
@@ -14,6 +15,12 @@ admin.site.index_title = 'Administration'
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # API endpoints
+    path('api/', include('api.urls')),
+    # API Schema (OpenAPI)
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('my-requisitions/', views.my_requisitions, name='my_requisitions'),

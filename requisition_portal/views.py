@@ -5,7 +5,12 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-from weasyprint import HTML
+try:
+    from weasyprint import HTML
+    WEASYPRINT_AVAILABLE = True
+except ImportError:
+    WEASYPRINT_AVAILABLE = False
+    HTML = None
 from ict_requisition.models import ICTRequisition
 from transport_requisition.models import TransportRequisition
 from internal_requisition.models import InternalRequisition
@@ -123,6 +128,13 @@ def documentation(request):
     fmt = request.GET.get('download')
     html = render_to_string('documentation.html')
     if fmt == 'pdf':
+        if not WEASYPRINT_AVAILABLE:
+            return HttpResponse(
+                'PDF generation requires weasyprint which is not installed. '
+                'On Windows, install it via WSL2 or use the HTML download option.',
+                content_type='text/plain',
+                status=501
+            )
         pdf = HTML(string=html).write_pdf()
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="Requisition_Portal_Documentation.pdf"'
