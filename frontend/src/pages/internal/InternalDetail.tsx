@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { ReasonModal } from '@/components/workflow/WorkflowModals'
+import { formatStamp } from '@/lib/utils'
 
 interface InternalDetail {
   id: number
@@ -13,9 +16,12 @@ interface InternalDetail {
   pin: string
   department: string
   equipment_items?: { name: string; quantity: number; purpose: string }[]
-  first_approver?: string
+  // detail.html prints "{{ r.first_approver.username }} on ...|date:"M d, Y H:i""
+  first_approver?: number
+  first_approver_name?: string
   first_approved_at?: string
-  second_approver?: string
+  second_approver?: number
+  second_approver_name?: string
   second_approved_at?: string
   rejection_reason?: string
 }
@@ -51,12 +57,35 @@ function StatusBadge({ status }: { status: string }) {
 // Exact replica of templates/internal_requisition/detail.html
 export function InternalDetail() {
   const { id } = useParams()
+  const queryClient = useQueryClient()
+  const [showReject, setShowReject] = useState(false)
   const { data: r, isLoading } = useQuery({
     queryKey: ['internal', id],
     queryFn: async () => {
       const response = await api.get<InternalDetail>(`/internal/${id}/`)
       return response.data
     },
+  })
+
+  const { data: act } = useQuery({
+    queryKey: ['internal-actions', id],
+    queryFn: async () => {
+      const response = await api.get<{ can_act: boolean }>(`/internal/${id}/actions/`)
+      return response.data
+    },
+  })
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['internal', id] })
+    queryClient.invalidateQueries({ queryKey: ['internal'] })
+  }
+  const approveMutation = useMutation({
+    mutationFn: () => api.post(`/internal/${id}/approve/`, {}),
+    onSuccess: refresh,
+  })
+  const rejectMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/internal/${id}/decline/`, { reason }),
+    onSuccess: refresh,
   })
 
   if (isLoading) {
@@ -157,7 +186,8 @@ export function InternalDetail() {
               <div className="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
                 <i className="bi bi-check-circle-fill text-success"></i>
                 <span>
-                  <strong>1st Approval:</strong> {r.first_approver} on {r.first_approved_at}
+                  <strong>1st Approval:</strong> {r.first_approver_name} on{' '}
+                  {formatStamp(r.first_approved_at)}
                 </span>
               </div>
             )}
@@ -166,7 +196,8 @@ export function InternalDetail() {
               <div className="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
                 <i className="bi bi-check-circle-fill text-success"></i>
                 <span>
-                  <strong>2nd Approval:</strong> {r.second_approver} on {r.second_approved_at}
+                  <strong>2nd Approval:</strong> {r.second_approver_name} on{' '}
+                  {formatStamp(r.second_approved_at)}
                 </span>
               </div>
             )}
@@ -182,14 +213,55 @@ export function InternalDetail() {
             )}
 
             <hr />
-            <div className="d-flex gap-2">
+            <div className="d-flex gap-2 flex-wrap">
               <Link to="/internal" className="btn btn-outline-secondary">
                 <i className="bi bi-arrow-left me-1"></i> Back
               </Link>
+              {act?.can_act && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    onClick={() => approveMutation.mutate()}
+                    disabled={approveMutation.isPending}
+                  >
+                    <i className="bi bi-check-lg me-1"></i> Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => setShowReject(true)}
+                  >
+                    <i className="bi bi-x-lg me-1"></i> Reject
+                  </button>
+                </>
+              )}
+              {approveMutation.isError && (
+                <div className="w-100 alert alert-danger py-2 mb-0">
+                  <i className="bi bi-exclamation-triangle me-1"></i>
+                  {(
+                    approveMutation.error as { response?: { data?: { error?: string } } }
+                  )?.response?.data?.error || 'Could not approve this requisition.'}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      <ReasonModal
+        open={showReject}
+        title="Reject Requisition"
+        label="Reason"
+        placeholder="What does the requester need to fix?"
+        helpText="The requester is emailed this reason."
+        confirmLabel="Reject"
+        confirmClassName="btn-danger"
+        onSubmit={async (reason) => {
+          await rejectMutation.mutateAsync(reason)
+        }}
+        onClose={() => setShowReject(false)}
+      />
     </div>
   )
 }

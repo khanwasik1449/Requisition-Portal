@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { formatDateDMY, formatTimeHM } from '@/lib/utils'
 
 interface Booking {
   id: number
@@ -100,9 +101,9 @@ export function MeetSpaceList() {
                       <Link to={`/meetspace/${b.id}`}>{b.meeting_title}</Link>
                     </td>
                     <td>{b.room_number || '—'}</td>
-                    <td>{b.date}</td>
+                    <td>{formatDateDMY(b.date)}</td>
                     <td>
-                      {b.start_time}–{b.end_time}
+                      {formatTimeHM(b.start_time)}-{formatTimeHM(b.end_time)}
                     </td>
                     <td>{getStatusBadge(b.status, b.status_display)}</td>
                     <td className="text-end">

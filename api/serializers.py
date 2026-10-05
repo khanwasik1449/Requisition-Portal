@@ -74,6 +74,11 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 # Transport Requisition Serializers
 class VehicleSerializer(serializers.ModelSerializer):
+    # main's transport detail template prints ``vehicle.get_vehicle_type_display``
+    # next to the registration, so expose the label as well as the raw choice.
+    vehicle_type_display = serializers.CharField(
+        source='get_vehicle_type_display', read_only=True)
+
     class Meta:
         model = Vehicle
         fields = '__all__'
@@ -200,6 +205,8 @@ class TransportRequisitionDetailSerializer(serializers.ModelSerializer):
     driver = DriverSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     extra_data = serializers.JSONField(read_only=True)
+    # main's detail template shows "Assigned by <username> on <date>".
+    assigned_by = serializers.SlugRelatedField(slug_field='username', read_only=True)
 
     class Meta:
         model = TransportRequisition
@@ -238,11 +245,20 @@ class TransportRequisitionUpdateSerializer(serializers.ModelSerializer):
 
 
 class TransportRequisitionActionSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=['approve', 'decline', 'amend', 'assign'])
+    """Body shared by every transport stage decision.
+
+    ``action`` is redundant with the URL the request lands on, but it is kept so
+    existing callers of ``POST /api/transport/{pk}/approve/`` keep working
+    unchanged.
+    """
+    action = serializers.ChoiceField(
+        choices=['approve', 'decline', 'amend', 'assign'], required=False)
     comment = serializers.CharField(required=False, allow_blank=True)
-    # For amend action
-    project_code = serializers.CharField(required=False, allow_blank=True)
-    budget_code = serializers.CharField(required=False, allow_blank=True)
+    # Decline reason / approve remarks (``reason`` mirrors the reject form).
+    reason = serializers.CharField(required=False, allow_blank=True)
+    remarks = serializers.CharField(required=False, allow_blank=True)
+    # Amendable field values, keyed by FormField.key (project_name_code, budget_code, ...)
+    changes = serializers.DictField(child=serializers.CharField(), required=False)
     # For assign action
     vehicle_id = serializers.IntegerField(required=False, allow_null=True)
     driver_id = serializers.IntegerField(required=False, allow_null=True)
@@ -273,11 +289,20 @@ class BookingDetailSerializer(serializers.ModelSerializer):
     room = RoomSerializer(read_only=True)
     user = UserSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # booking_detail.html signs the reason with "by <full name> on <date>".
+    cancelled_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = '__all__'
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+    def get_cancelled_by_name(self, obj):
+        # Matches {{ b.cancelled_by.get_full_name }}, which falls back to the
+        # username when both name fields are blank.
+        if not obj.cancelled_by:
+            return None
+        return obj.cancelled_by.get_full_name() or obj.cancelled_by.username
 
 
 class BookingCreateSerializer(serializers.ModelSerializer):
@@ -296,12 +321,16 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
 
 class BookingActionSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=['approve', 'decline', 'suggest_alternative'])
+    """Body shared by the MeetSpace booking decisions."""
+    action = serializers.ChoiceField(
+        choices=['approve', 'decline', 'suggest_alternative'], required=False)
     comment = serializers.CharField(required=False, allow_blank=True)
-    # For suggest_alternative
-    alternative_room_id = serializers.IntegerField(required=False, allow_null=True)
-    alternative_start_time = serializers.DateTimeField(required=False, allow_null=True)
-    alternative_end_time = serializers.DateTimeField(required=False, allow_null=True)
+    # Rejection / cancellation reason — required by the reject & cancel forms.
+    reason = serializers.CharField(required=False, allow_blank=True)
+    # For suggest_alternative: one or more room + slot offers the requester picks from.
+    alternatives = serializers.ListField(child=serializers.DictField(), required=False)
+    # For accept_alternative: index into Booking.alternatives
+    alternative_index = serializers.IntegerField(required=False, allow_null=True)
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
@@ -328,6 +357,12 @@ class ICTRequisitionListSerializer(serializers.ModelSerializer):
 class ICTRequisitionDetailSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # detail.html prints "{{ r.first_approver.username }}" — expose the name
+    # alongside the raw FK so the React page can render the same line.
+    first_approver_name = serializers.SlugRelatedField(
+        slug_field='username', source='first_approver', read_only=True)
+    second_approver_name = serializers.SlugRelatedField(
+        slug_field='username', source='second_approver', read_only=True)
 
     class Meta:
         model = ICTRequisition
@@ -346,8 +381,9 @@ class ICTRequisitionCreateSerializer(serializers.ModelSerializer):
 
 
 class ICTRequisitionActionSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=['approve', 'decline'])
+    action = serializers.ChoiceField(choices=['approve', 'decline'], required=False)
     comment = serializers.CharField(required=False, allow_blank=True)
+    reason = serializers.CharField(required=False, allow_blank=True)
 
 
 # Internal Requisition Serializers
@@ -367,6 +403,12 @@ class InternalRequisitionListSerializer(serializers.ModelSerializer):
 class InternalRequisitionDetailSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    # detail.html prints "{{ r.first_approver.username }}" — expose the name
+    # alongside the raw FK so the React page can render the same line.
+    first_approver_name = serializers.SlugRelatedField(
+        slug_field='username', source='first_approver', read_only=True)
+    second_approver_name = serializers.SlugRelatedField(
+        slug_field='username', source='second_approver', read_only=True)
 
     class Meta:
         model = InternalRequisition
@@ -385,8 +427,9 @@ class InternalRequisitionCreateSerializer(serializers.ModelSerializer):
 
 
 class InternalRequisitionActionSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=['approve', 'decline'])
+    action = serializers.ChoiceField(choices=['approve', 'decline'], required=False)
     comment = serializers.CharField(required=False, allow_blank=True)
+    reason = serializers.CharField(required=False, allow_blank=True)
 
 
 # Contracts Serializers

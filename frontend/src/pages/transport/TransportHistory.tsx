@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { formatDateDMY, formatTimeHM } from '@/lib/utils'
 
 interface TrailEntry {
   id: number
@@ -275,11 +276,11 @@ export function TransportHistory() {
                     <tr>
                       <td className="text-muted">Pick-up</td>
                       <td>
-                        {r.pick_up_date} {r.pick_up_time}
+                        {formatDateDMY(r.pick_up_date)} {formatTimeHM(r.pick_up_time)}
                       </td>
                       <td className="text-muted">Drop-off</td>
                       <td>
-                        {r.drop_off_date} {r.drop_off_time}
+                        {formatDateDMY(r.drop_off_date)} {formatTimeHM(r.drop_off_time)}
                       </td>
                     </tr>
                     <tr>

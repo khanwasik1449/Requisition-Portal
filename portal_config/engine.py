@@ -327,9 +327,9 @@ def apply_changes(module_key, requisition, changes):
 # display who signed it off or when.
 STAGE_PROGRESS_FIELDS = {
     'transport': {
-        'pending_first': (('first_approved_at', None), ('first_approver', None)),
-        'pending_grants': (('grants_approved_at', None), ('grants_approver', None)),
-        'pending_transport': (('transport_approved_at', None), ('transport_approver', None)),
+        'pending_first': ('first_approved_at', 'first_approver'),
+        'pending_grants': ('grants_approved_at', 'grants_approver'),
+        'pending_transport': ('transport_approved_at', 'transport_approver'),
     },
 }
 

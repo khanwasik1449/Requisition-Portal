@@ -5,6 +5,66 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Django's settings.TIME_ZONE.
+ *
+ * main formats every `|date:` filter in this zone, so the React pages must too
+ * or every approval stamp drifts by the difference between the server and the
+ * viewer's clock. Keep this in sync with requisition_portal/settings.py.
+ */
+export const SERVER_TIME_ZONE = 'Africa/Nairobi'
+
+/**
+ * Django's `date:"M d, Y"` filter — "Oct 10, 2026", the date-only form used
+ * for pick-up, drop-off and requisition dates.
+ */
+export function formatDateDMY(value?: string | Date | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SERVER_TIME_ZONE,
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  }).formatToParts(d)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('month').slice(0, 3)} ${get('day')}, ${get('year')}`
+}
+
+/**
+ * Django's `date:"d M Y"` filter — "05 Oct 2026".
+ *
+ * my_requisitions.html is the only template in main that uses this day-first
+ * shape, so it gets its own helper rather than a format argument nobody else
+ * needs.
+ */
+export function formatDateDayMonthYear(value?: string | Date | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SERVER_TIME_ZONE,
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  }).formatToParts(d)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('day')} ${get('month').slice(0, 3)} ${get('year')}`
+}
+
+/**
+ * Django's `time:"H:i"` filter — "09:00".
+ *
+ * Accepts both a bare time ("09:00:00", what TimeField serialises) and a full
+ * timestamp, and deliberately does not shift either through the viewer's clock.
+ */
+export function formatTimeHM(value?: string | null): string {
+  if (!value) return ''
+  const m = /^(\d{2}):(\d{2})/.exec(value)
+  return m ? `${m[1]}:${m[2]}` : value
+}
+
 export function formatDate(date: string | Date, format = 'PPP'): string {
   const d = new Date(date)
   return d.toLocaleDateString('en-US', {
@@ -31,6 +91,38 @@ export function formatTime(date: string | Date): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+/**
+ * Django's `date:"M d, Y H:i"` filter, byte-for-byte.
+ *
+ * Every detail.html template in main stamps an approver or an assignment with
+ * this exact shape — "Oct 05, 2026 17:12" — so all of them share this helper.
+ *
+ * The stamp is rendered in Django's timezone, not the viewer's: with USE_TZ on,
+ * `{{ x|date:"..." }}` formats in settings.TIME_ZONE, so a Nairobi-time approval
+ * must not read three hours later just because the browser sits in another zone.
+ */
+export function formatStamp(value?: string | Date | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SERVER_TIME_ZONE,
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  // Some engines report midnight as hour "24" under hour12:false.
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('month').slice(0, 3)} ${get('day')}, ` +
+         `${get('year')} ${hour}:${get('minute')}`
 }
 
 export function getStatusColor(status: string): string {

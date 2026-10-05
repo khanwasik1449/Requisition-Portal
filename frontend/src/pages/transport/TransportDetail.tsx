@@ -1,6 +1,23 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { ReasonModal, AssignDriverModal } from '@/components/workflow/WorkflowModals'
+import { formatDateDMY, formatStamp, formatTimeHM } from '@/lib/utils'
+
+interface Vehicle {
+  id: number
+  registration_number: string
+  vehicle_type: string
+  vehicle_type_display?: string
+  make_model?: string
+}
+interface Driver {
+  id: number
+  name: string
+  cell_number?: string
+  car_no?: string
+}
 
 interface TransportDetail {
   id: number
@@ -27,10 +44,56 @@ interface TransportDetail {
   budget_code: string
   supervisor_acknowledged: boolean
   comments_remarks?: string
-  driver_name?: string
-  driver_cell?: string
-  vehicle_registration?: string
+  // Nested, exactly as the Django template reads them (r.vehicle / r.driver).
+  vehicle?: Vehicle | null
+  driver?: Driver | null
+  assigned_by?: string | null
+  assigned_at?: string | null
+  grants_amended?: boolean
+  grants_remarks?: string
   rejection_reason?: string
+}
+
+interface StageInfo {
+  key: string
+  name: string
+  can_approve: boolean
+  can_decline: boolean
+  can_assign: boolean
+  can_amend: boolean
+  require_reason_on_decline: boolean
+  is_terminal: boolean
+}
+interface TrailStep {
+  key: string
+  name: string
+  done: boolean
+  current: boolean
+  at: string | null
+  by: string | null
+}
+interface AmendField {
+  key: string
+  label: string
+  input_type: string
+  required: boolean
+  placeholder?: string
+  options: Array<{ value: string; label: string }>
+  value: string | number | null
+}
+interface TransportActions {
+  can_view: boolean
+  can_act: boolean
+  stage: StageInfo | null
+  amendable_fields: AmendField[]
+  trail: TrailStep[]
+  vehicles?: Array<{
+    id: number
+    registration_number: string
+    vehicle_type_display?: string
+    make_model?: string
+  }>
+  drivers?: Array<{ id: number; name: string; cell_number?: string }>
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -55,15 +118,54 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// Django's `date:"M d, Y H:i"` — shared so every detail page stamps identically.
+const fmt = formatStamp
+
 // Exact replica of templates/transport_requisition/detail.html
 export function TransportDetail() {
   const { id } = useParams()
+  const queryClient = useQueryClient()
+  const [showDecline, setShowDecline] = useState(false)
+  const [showAssign, setShowAssign] = useState(false)
+  const [amendValues, setAmendValues] = useState<Record<string, string>>({})
+  const [remarks, setRemarks] = useState('')
+  const [amendError, setAmendError] = useState('')
+
   const { data: r, isLoading } = useQuery({
     queryKey: ['transport', id],
     queryFn: async () => {
       const response = await api.get<TransportDetail>(`/transport/${id}/`)
       return response.data
     },
+  })
+
+  const { data: act } = useQuery({
+    queryKey: ['transport-actions', id],
+    queryFn: async () => {
+      const response = await api.get<TransportActions>(`/transport/${id}/actions/`)
+      return response.data
+    },
+  })
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['transport', id] })
+    queryClient.invalidateQueries({ queryKey: ['transport-actions', id] })
+    queryClient.invalidateQueries({ queryKey: ['transport'] })
+  }
+
+  const approveMutation = useMutation({
+    mutationFn: (body: { changes?: Record<string, string>; remarks?: string }) =>
+      api.post(`/transport/${id}/approve/`, body),
+    onSuccess: refresh,
+  })
+  const declineMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/transport/${id}/decline/`, { reason }),
+    onSuccess: refresh,
+  })
+  const assignMutation = useMutation({
+    mutationFn: ({ vehicleId, driverId }: { vehicleId: number; driverId: number }) =>
+      api.post(`/transport/${id}/assign/`, { vehicle_id: vehicleId, driver_id: driverId }),
+    onSuccess: refresh,
   })
 
   if (isLoading) {
@@ -77,6 +179,35 @@ export function TransportDetail() {
   }
 
   if (!r) return <p className="text-muted">Requisition not found.</p>
+
+  const stage = act?.stage ?? null
+  const canAct = act?.can_act ?? false
+  const amendable = act?.amendable_fields ?? []
+  const showAmendForm = canAct && !!stage?.can_amend && amendable.length > 0
+  // A stage that can approve but has nothing to amend needs a plain Approve
+  // button, otherwise the chain can never leave its first stage.
+  const showPlainApprove = canAct && !!stage?.can_approve && !showAmendForm
+  const trail = act?.trail ?? []
+
+  const onAmendChange = (key: string, value: string) =>
+    setAmendValues((prev) => ({ ...prev, [key]: value }))
+
+  const submitAmendApprove = async () => {
+    setAmendError('')
+    const changes: Record<string, string> = {}
+    amendable.forEach((f) => {
+      const v = amendValues[f.key]
+      if (v !== undefined) changes[f.key] = v
+    })
+    try {
+      await approveMutation.mutateAsync({ changes, remarks })
+      setAmendValues({})
+      setRemarks('')
+    } catch (err) {
+      const data = (err as { response?: { data?: { error?: string } } })?.response?.data
+      setAmendError(data?.error || 'Could not approve this requisition.')
+    }
+  }
 
   return (
     <div className="row justify-content-center">
@@ -141,11 +272,11 @@ export function TransportDetail() {
               </div>
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Pick-up Date</label>
-                <div className="fw-semibold">{r.pick_up_date}</div>
+                <div className="fw-semibold">{formatDateDMY(r.pick_up_date)}</div>
               </div>
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Pick-up Time</label>
-                <div className="fw-semibold">{r.pick_up_time}</div>
+                <div className="fw-semibold">{formatTimeHM(r.pick_up_time)}</div>
               </div>
             </div>
             <div className="row mb-3">
@@ -161,11 +292,11 @@ export function TransportDetail() {
             <div className="row mb-4">
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Drop-off Date</label>
-                <div className="fw-semibold">{r.drop_off_date}</div>
+                <div className="fw-semibold">{formatDateDMY(r.drop_off_date)}</div>
               </div>
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Drop-off Time</label>
-                <div className="fw-semibold">{r.drop_off_time}</div>
+                <div className="fw-semibold">{formatTimeHM(r.drop_off_time)}</div>
               </div>
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Drop-off Location</label>
@@ -218,9 +349,63 @@ export function TransportDetail() {
             <h6 className="fw-bold mb-3" style={{ color: '#d97706' }}>
               <i className="bi bi-check2-circle me-1"></i> Approval Status
             </h6>
-            <div className="mb-2 p-3 bg-light rounded text-muted">
-              <i className="bi bi-clock me-1"></i> Awaiting approval
-            </div>
+            {trail.length > 0 ? (
+              trail.map((step) => (
+                <div
+                  key={step.key}
+                  className="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2"
+                >
+                  {step.done && !step.current ? (
+                    <>
+                      <i className="bi bi-check-circle-fill text-success"></i>
+                      <span>
+                        <strong>{step.name}:</strong> {step.by || 'approved'}
+                        {step.at ? ` on ${fmt(step.at)}` : ''}
+                      </span>
+                    </>
+                  ) : step.current ? (
+                    <>
+                      <i className="bi bi-hourglass-split text-warning"></i>
+                      <span className="text-muted">
+                        <strong>{step.name}:</strong> awaiting a decision
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-circle text-muted"></i>
+                      <span className="text-muted">{step.name}</span>
+                    </>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="mb-2 p-3 bg-light rounded text-muted">
+                <i className="bi bi-clock me-1"></i> Awaiting approval
+              </div>
+            )}
+
+            {r.grants_amended && (
+              <div className="mb-2 p-3 bg-info bg-opacity-10 rounded small">
+                <i className="bi bi-pencil-square me-1"></i>
+                <strong>Funding codes corrected by Grants.</strong>
+                <ul className="mb-0 mt-1">
+                  <li>
+                    Project: <code>{r.project_name_code}</code>
+                  </li>
+                  <li>
+                    Budget: <code>{r.budget_code}</code>
+                  </li>
+                  {r.grants_remarks && <li>Remark: {r.grants_remarks}</li>}
+                </ul>
+              </div>
+            )}
+
+            {r.status === 'rejected' && !r.grants_amended && (
+              <div className="mb-2 p-3 bg-light rounded text-muted">
+                <i className="bi bi-clock me-1"></i> This requisition was declined before
+                completing the chain.
+              </div>
+            )}
 
             {r.rejection_reason && (
               <div className="mb-3 p-3 bg-danger bg-opacity-10 rounded d-flex align-items-start gap-2">
@@ -235,22 +420,40 @@ export function TransportDetail() {
             <h6 className="fw-bold mb-3" style={{ color: '#198754' }}>
               <i className="bi bi-person-badge me-1"></i> Vehicle &amp; Driver Assignment
             </h6>
-            {r.driver_name || r.vehicle_registration ? (
+            {r.vehicle || r.driver ? (
               <div className="mb-3 p-3 bg-light rounded">
                 <div className="row">
                   <div className="col-md-4 mb-2">
                     <label className="form-label text-muted small mb-1">Vehicle</label>
-                    <div className="fw-semibold">{r.vehicle_registration || '—'}</div>
+                    <div className="fw-semibold">
+                      {r.vehicle ? r.vehicle.registration_number : <span className="text-muted">—</span>}
+                    </div>
+                    {r.vehicle && (
+                      <div className="small text-muted">
+                        {r.vehicle.vehicle_type_display || r.vehicle.vehicle_type}
+                        {r.vehicle.make_model ? ` · ${r.vehicle.make_model}` : ''}
+                      </div>
+                    )}
                   </div>
                   <div className="col-md-4 mb-2">
                     <label className="form-label text-muted small mb-1">Driver Name</label>
-                    <div className="fw-semibold">{r.driver_name || '—'}</div>
+                    <div className="fw-semibold">
+                      {r.driver ? r.driver.name : <span className="text-muted">—</span>}
+                    </div>
                   </div>
                   <div className="col-md-4 mb-2">
                     <label className="form-label text-muted small mb-1">Cell Number</label>
-                    <div className="fw-semibold">{r.driver_cell || '—'}</div>
+                    <div className="fw-semibold">
+                      {r.driver ? r.driver.cell_number : <span className="text-muted">—</span>}
+                    </div>
                   </div>
                 </div>
+                {r.assigned_by && (
+                  <div className="mt-2 small text-muted">
+                    Assigned by {r.assigned_by}
+                    {r.assigned_at ? ` on ${fmt(r.assigned_at)}` : ''}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="mb-3 p-3 bg-light rounded text-muted">
@@ -259,14 +462,141 @@ export function TransportDetail() {
             )}
 
             <hr />
-            <div className="d-flex gap-2">
+            <div className="d-flex gap-2 flex-wrap">
               <Link to="/transport" className="btn btn-outline-secondary">
                 <i className="bi bi-arrow-left me-1"></i> Back
               </Link>
+              {canAct && stage?.can_assign && (
+                <button type="button" className="btn btn-primary" onClick={() => setShowAssign(true)}>
+                  <i className="bi bi-truck me-1"></i> Assign Vehicle &amp; Driver
+                </button>
+              )}
+              {canAct && stage?.can_decline && (
+                <button
+                  type="button"
+                  className="btn btn-outline-danger"
+                  onClick={() => setShowDecline(true)}
+                >
+                  <i className="bi bi-x-lg me-1"></i> Decline
+                </button>
+              )}
+              {showPlainApprove && (
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={() => approveMutation.mutate({})}
+                  disabled={approveMutation.isPending}
+                >
+                  <i className="bi bi-check-lg me-1"></i> Approve at {stage?.name}
+                </button>
+              )}
             </div>
+
+            {showAmendForm && stage && (
+              <div className="card mt-3 border-warning">
+                <div className="card-header bg-warning bg-opacity-25">
+                  <i className="bi bi-pencil-square me-1"></i>
+                  <strong>{stage.name}</strong> — you may correct these before approving
+                </div>
+                <div className="card-body">
+                  <div className="row g-3">
+                    {amendable.map((field) => (
+                      <div className="col-md-6" key={field.key}>
+                        <label className="form-label" htmlFor={`amend-${field.key}`}>
+                          {field.label}
+                        </label>
+                        {field.options.length > 0 ? (
+                          <select
+                            id={`amend-${field.key}`}
+                            className="form-select form-select-sm"
+                            value={
+                              amendValues[field.key] ?? String(field.value ?? '')
+                            }
+                            onChange={(e) => onAmendChange(field.key, e.target.value)}
+                          >
+                            {field.options.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type={field.input_type}
+                            id={`amend-${field.key}`}
+                            className="form-control form-control-sm"
+                            value={amendValues[field.key] ?? String(field.value ?? '')}
+                            placeholder={field.placeholder}
+                            onChange={(e) => onAmendChange(field.key, e.target.value)}
+                          />
+                        )}
+                        <div className="form-text">Currently: {field.value ?? '—'}</div>
+                      </div>
+                    ))}
+                    <div className="col-12">
+                      <label className="form-label" htmlFor="grants-remarks">
+                        Remarks (optional)
+                      </label>
+                      <textarea
+                        name="remarks"
+                        id="grants-remarks"
+                        rows={2}
+                        className="form-control form-control-sm"
+                        placeholder="Why the codes were changed."
+                        value={remarks}
+                        onChange={(e) => setRemarks(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {amendError && (
+                    <div className="alert alert-danger py-2 mt-3 mb-0">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      {amendError}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-success mt-3"
+                    onClick={submitAmendApprove}
+                    disabled={approveMutation.isPending}
+                  >
+                    <i className="bi bi-check-lg me-1"></i> Approve at {stage.name}
+                  </button>
+                  <div className="form-text mt-2">
+                    Any value you change here is recorded in the audit log and shown to the
+                    requester.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      <ReasonModal
+        open={showDecline}
+        title={`Decline at ${stage?.name ?? 'this stage'}`}
+        label="Reason"
+        placeholder="What does the requester need to fix?"
+        helpText="The requester is emailed this reason."
+        confirmLabel="Decline"
+        confirmClassName="btn-danger"
+        required={!!stage?.require_reason_on_decline}
+        onSubmit={async (reason) => {
+          await declineMutation.mutateAsync(reason)
+        }}
+        onClose={() => setShowDecline(false)}
+      />
+
+      <AssignDriverModal
+        open={showAssign}
+        vehicles={act?.vehicles ?? []}
+        drivers={act?.drivers ?? []}
+        onSubmit={async (vehicleId, driverId) => {
+          await assignMutation.mutateAsync({ vehicleId, driverId })
+        }}
+        onClose={() => setShowAssign(false)}
+      />
     </div>
   )
 }

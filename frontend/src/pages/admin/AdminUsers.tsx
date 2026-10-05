@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/axios'
+import { formatDateDMY } from '@/lib/utils'
 
 interface AdminUser {
   id: number
@@ -110,7 +111,7 @@ export function AdminUsers() {
                           </span>
                         )}
                       </td>
-                      <td className="text-muted small">{u.date_joined}</td>
+                      <td className="text-muted small">{formatDateDMY(u.date_joined)}</td>
                       <td className="text-end">
                         <div className="d-flex gap-1 justify-content-end">
                           <button className="btn btn-sm btn-outline-secondary" title="Edit">

@@ -49,6 +49,7 @@ from .permissions import (
     IsAdminUser, IsSupervisor, IsGrants, IsTransportAdmin,
     IsICTAdmin, IsInternalAdmin, IsHRAdmin, IsRequester, IsOwnerOrAdmin,
 )
+from . import workflow
 
 
 User = get_user_model()
@@ -189,7 +190,9 @@ class TransportRequisitionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = super().get_queryset()
-        if user.is_admin() or user.is_transport_admin() or user.is_supervisor() or user.is_grants():
+        # Same guard as ``transport_requisition.views.detail_view``: approvers
+        # and admins see everything, everyone else sees their own.
+        if user.is_admin() or user.is_approver():
             return qs
         return qs.filter(user=user)
 
@@ -198,103 +201,58 @@ class TransportRequisitionViewSet(viewsets.ModelViewSet):
             return [IsRequester()]
         if self.action in ['update', 'partial_update', 'destroy']:
             return [IsOwnerOrAdmin()]
-        if self.action in ['approve', 'decline', 'amend', 'assign']:
-            return [IsTransportAdmin | IsGrants | IsSupervisor | IsAdminUser()]
+        if self.action in ['approve', 'decline', 'amend', 'assign', 'actions']:
+            # The stage engine decides who may act, exactly as the template
+            # views do — a coarser DRF permission here would block roles the
+            # configured chain legitimately allows.
+            return [IsRequester()]
         return [IsRequester()]
+
+    @action(detail=True, methods=['get'])
+    def actions(self, request, pk=None):
+        """Everything the detail page needs to decide which buttons to show."""
+        requisition = self.get_object()
+        return Response(workflow.transport_context(request.user, requisition))
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        requisition = self.get_object()
         serializer = TransportRequisitionActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        if requisition.status not in ['pending_first', 'pending_grants', 'pending_transport']:
-            return Response({'error': 'Requisition cannot be approved in current state.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Simple state transitions
-        if requisition.status == 'pending_first':
-            requisition.status = 'pending_grants'
-        elif requisition.status == 'pending_grants':
-            requisition.status = 'pending_transport'
-        elif requisition.status == 'pending_transport':
-            requisition.status = 'approved'
-        requisition.save()
-
-        # Log audit
-        AuditLog.objects.create(
-            user=request.user,
-            action='approve',
-            content_object=requisition,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        requisition = self.get_object()
+        try:
+            workflow.transport_approve(
+                request.user, requisition, serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(TransportRequisitionDetailSerializer(requisition).data)
 
     @action(detail=True, methods=['post'])
     def decline(self, request, pk=None):
-        requisition = self.get_object()
         serializer = TransportRequisitionActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        requisition.status = 'rejected'
-        requisition.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='decline',
-            content_object=requisition,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        requisition = self.get_object()
+        try:
+            workflow.transport_decline(
+                request.user, requisition, serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(TransportRequisitionDetailSerializer(requisition).data)
 
     @action(detail=True, methods=['post'])
     def amend(self, request, pk=None):
-        requisition = self.get_object()
-        serializer = TransportRequisitionActionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        if not (request.user.is_grants() or request.user.is_admin()):
-            return Response({'error': 'Only Grants can amend.'}, status=status.HTTP_403_FORBIDDEN)
-
-        if serializer.validated_data.get('project_code'):
-            requisition.project_code = serializer.validated_data['project_code']
-        if serializer.validated_data.get('budget_code'):
-            requisition.budget_code = serializer.validated_data['budget_code']
-        requisition.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='amend',
-            content_object=requisition,
-            comment=serializer.validated_data.get('comment', ''),
-        )
-        return Response(TransportRequisitionDetailSerializer(requisition).data)
+        """Kept for compatibility — amendments ride along with ``approve``."""
+        return self.approve(request, pk=pk)
 
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):
-        requisition = self.get_object()
         serializer = TransportRequisitionActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        if not (request.user.is_transport_admin() or request.user.is_admin()):
-            return Response({'error': 'Only Transport Admin can assign.'}, status=status.HTTP_403_FORBIDDEN)
-
-        vehicle_id = serializer.validated_data.get('vehicle_id')
-        driver_id = serializer.validated_data.get('driver_id')
-
-        if vehicle_id:
-            requisition.vehicle_id = vehicle_id
-        if driver_id:
-            requisition.driver_id = driver_id
-
-        requisition.status = 'assigned'
-        requisition.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='assign',
-            content_object=requisition,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        requisition = self.get_object()
+        try:
+            workflow.transport_assign(
+                request.user, requisition, serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(TransportRequisitionDetailSerializer(requisition).data)
 
     @action(detail=False, methods=['get'])
@@ -340,63 +298,87 @@ class BookingViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create']:
             return [permissions.AllowAny()]  # Public booking
-        if self.action in ['approve', 'decline', 'suggest_alternative']:
-            return [IsHRAdmin | IsAdminUser()]
+        if self.action in ['approve', 'decline', 'suggest_alternative',
+                           'cancel', 'accept_alternative',
+                           'reject_alternatives', 'actions']:
+            # MeetSpace's own role rules live in the workflow helpers so they
+            # stay identical to the template views (owner may cancel/answer
+            # alternatives, only HR admins may approve/reject).
+            return [IsRequester()]
         if self.action in ['update', 'partial_update', 'destroy']:
             return [IsOwnerOrAdmin()]
         return [IsRequester()]
 
+    @action(detail=True, methods=['get'])
+    def actions(self, request, pk=None):
+        """Which MeetSpace buttons this user may see on this booking."""
+        booking = self.get_object()
+        return Response(workflow.booking_context(request.user, booking))
+
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         booking = self.get_object()
-        serializer = BookingActionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        booking.status = 'approved'
-        booking.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='approve',
-            content_object=booking,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        try:
+            workflow.booking_approve(request.user, booking)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(BookingDetailSerializer(booking).data)
 
     @action(detail=True, methods=['post'])
     def decline(self, request, pk=None):
-        booking = self.get_object()
         serializer = BookingActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        booking.status = 'rejected'
-        booking.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='decline',
-            content_object=booking,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        booking = self.get_object()
+        try:
+            workflow.booking_decline(
+                request.user, booking, serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(BookingDetailSerializer(booking).data)
 
     @action(detail=True, methods=['post'])
-    def suggest_alternative(self, request, pk=None):
-        booking = self.get_object()
+    def cancel(self, request, pk=None):
         serializer = BookingActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        booking = self.get_object()
+        try:
+            workflow.booking_cancel(
+                request.user, booking, serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
+        return Response(BookingDetailSerializer(booking).data)
 
-        # Create alternative booking suggestion
-        # This would need a separate model in production
-        booking.status = 'alternative_suggested'
-        booking.save()
+    @action(detail=True, methods=['post'], url_path='suggest_alternative')
+    def suggest_alternative(self, request, pk=None):
+        serializer = BookingActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = self.get_object()
+        try:
+            workflow.booking_suggest_alternatives(
+                request.user, booking, serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
+        return Response(BookingDetailSerializer(booking).data)
 
-        AuditLog.objects.create(
-            user=request.user,
-            action='suggest_alternative',
-            content_object=booking,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+    @action(detail=True, methods=['post'], url_path='accept_alternative')
+    def accept_alternative(self, request, pk=None):
+        serializer = BookingActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = self.get_object()
+        try:
+            workflow.booking_accept_alternative(
+                request.user, booking, serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
+        return Response(BookingDetailSerializer(booking).data)
+
+    @action(detail=True, methods=['post'], url_path='reject_alternatives')
+    def reject_alternatives(self, request, pk=None):
+        booking = self.get_object()
+        try:
+            workflow.booking_reject_alternatives(request.user, booking)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(BookingDetailSerializer(booking).data)
 
     @action(detail=False, methods=['get'])
@@ -452,47 +434,42 @@ class ICTRequisitionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = super().get_queryset()
-        if user.is_admin() or user.is_ict_admin():
+        # Same guard as ``ict_requisition.views.detail_view``.
+        if user.is_admin() or user.is_approver():
             return qs
         return qs.filter(user=user)
 
     def get_permissions(self):
-        if self.action in ['approve', 'decline']:
-            return [IsICTAdmin | IsAdminUser()]
+        if self.action in ['approve', 'decline', 'actions']:
+            # ``two_stage_approve`` applies the same is_first/is_second
+            # approver gates the template view does, with the same message.
+            return [IsRequester()]
         return [IsRequester()]
+
+    @action(detail=True, methods=['get'])
+    def actions(self, request, pk=None):
+        req = self.get_object()
+        return Response(workflow.two_stage_context(request.user, req, 'ict'))
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         req = self.get_object()
-        serializer = ICTRequisitionActionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        req.status = 'approved'
-        req.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='approve',
-            content_object=req,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        try:
+            workflow.two_stage_approve(request.user, req, 'ict')
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(ICTRequisitionDetailSerializer(req).data)
 
     @action(detail=True, methods=['post'])
     def decline(self, request, pk=None):
-        req = self.get_object()
         serializer = ICTRequisitionActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        req.status = 'rejected'
-        req.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='decline',
-            content_object=req,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        req = self.get_object()
+        try:
+            workflow.two_stage_decline(
+                request.user, req, 'ict', serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(ICTRequisitionDetailSerializer(req).data)
 
     @action(detail=False, methods=['get'])
@@ -517,47 +494,42 @@ class InternalRequisitionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = super().get_queryset()
-        if user.is_admin() or user.is_internal_admin():
+        # Same guard as ``internal_requisition.views.detail_view``.
+        if user.is_admin() or user.is_approver():
             return qs
         return qs.filter(user=user)
 
     def get_permissions(self):
-        if self.action in ['approve', 'decline']:
-            return [IsInternalAdmin | IsAdminUser()]
+        if self.action in ['approve', 'decline', 'actions']:
+            # ``two_stage_approve`` applies the same is_first/is_second
+            # approver gates the template view does, with the same message.
+            return [IsRequester()]
         return [IsRequester()]
+
+    @action(detail=True, methods=['get'])
+    def actions(self, request, pk=None):
+        req = self.get_object()
+        return Response(workflow.two_stage_context(request.user, req, 'internal'))
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
         req = self.get_object()
-        serializer = InternalRequisitionActionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        req.status = 'approved'
-        req.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='approve',
-            content_object=req,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        try:
+            workflow.two_stage_approve(request.user, req, 'internal')
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(InternalRequisitionDetailSerializer(req).data)
 
     @action(detail=True, methods=['post'])
     def decline(self, request, pk=None):
-        req = self.get_object()
         serializer = InternalRequisitionActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        req.status = 'rejected'
-        req.save()
-
-        AuditLog.objects.create(
-            user=request.user,
-            action='decline',
-            content_object=req,
-            comment=serializer.validated_data.get('comment', ''),
-        )
+        req = self.get_object()
+        try:
+            workflow.two_stage_decline(
+                request.user, req, 'internal', serializer.validated_data)
+        except workflow.WorkflowError as exc:
+            return Response({'error': exc.message}, status=exc.http_status)
         return Response(InternalRequisitionDetailSerializer(req).data)
 
     @action(detail=False, methods=['get'])

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { formatDateDMY } from '@/lib/utils'
 
 interface ReportRow {
   id: number
@@ -52,12 +53,12 @@ function StatusBadge({ status, displayName }: { status: string; displayName?: st
   )
 }
 
+// main's report.html prints `{{ r.pick_up_date|date:"M d, Y" }}`; delegate to
+// the shared helper so it lands in Django's timezone like every other stamp.
 function fmtDate(d: string) {
   if (!d) return '—'
-  const parsed = new Date(d)
-  if (isNaN(parsed.getTime())) return d
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[parsed.getMonth()]} ${String(parsed.getDate()).padStart(2, '0')}, ${parsed.getFullYear()}`
+  const out = formatDateDMY(d)
+  return out || '—'
 }
 
 const emptyFilters = { date_from: '', date_to: '', status: '' }

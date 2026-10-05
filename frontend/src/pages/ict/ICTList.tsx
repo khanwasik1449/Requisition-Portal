@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { formatDateDMY } from '@/lib/utils'
 
 interface ICTRequisition {
   id: number
@@ -103,7 +104,7 @@ export function ICTList() {
                       <td>{r.full_name}</td>
                       <td>—</td>
                       <td>{r.designation}</td>
-                      <td className="text-muted small">{r.requisition_date}</td>
+                      <td className="text-muted small">{formatDateDMY(r.requisition_date)}</td>
                       <td>
                         <StatusBadge status={r.status} />
                       </td>

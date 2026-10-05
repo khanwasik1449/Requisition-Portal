@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { formatDateDMY, formatTimeHM } from '@/lib/utils'
 import { TransportRequisition, PaginatedResponse } from '@/types'
 
 function StatusBadge({ status, displayName }: { status: string; displayName?: string }) {
@@ -99,7 +100,8 @@ export function TransportList() {
                         </span>
                       </td>
                       <td className="text-muted small">
-                        {(r as any).pick_up_date} {(r as any).pick_up_time}
+                        {formatDateDMY((r as any).pick_up_date)}{' '}
+                        {formatTimeHM((r as any).pick_up_time)}
                       </td>
                       <td>
                         {r.driver_name ? (

@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { ReasonModal } from '@/components/workflow/WorkflowModals'
+import { formatDateDMY, formatStamp } from '@/lib/utils'
 
 interface ICTDetail {
   id: number
@@ -18,9 +21,12 @@ interface ICTDetail {
   equipment_specification?: string
   purpose: string
   supervisor_name?: string
-  first_approver?: string
+  // detail.html prints "{{ r.first_approver.username }} on ...|date:"M d, Y H:i""
+  first_approver?: number
+  first_approver_name?: string
   first_approved_at?: string
-  second_approver?: string
+  second_approver?: number
+  second_approver_name?: string
   second_approved_at?: string
   rejection_reason?: string
 }
@@ -56,12 +62,35 @@ function StatusBadge({ status }: { status: string }) {
 // Exact replica of templates/ict_requisition/detail.html
 export function ICTDetail() {
   const { id } = useParams()
+  const queryClient = useQueryClient()
+  const [showReject, setShowReject] = useState(false)
   const { data: r, isLoading } = useQuery({
     queryKey: ['ict', id],
     queryFn: async () => {
       const response = await api.get<ICTDetail>(`/ict/${id}/`)
       return response.data
     },
+  })
+
+  const { data: act } = useQuery({
+    queryKey: ['ict-actions', id],
+    queryFn: async () => {
+      const response = await api.get<{ can_act: boolean }>(`/ict/${id}/actions/`)
+      return response.data
+    },
+  })
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['ict', id] })
+    queryClient.invalidateQueries({ queryKey: ['ict'] })
+  }
+  const approveMutation = useMutation({
+    mutationFn: () => api.post(`/ict/${id}/approve/`, {}),
+    onSuccess: refresh,
+  })
+  const rejectMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/ict/${id}/decline/`, { reason }),
+    onSuccess: refresh,
   })
 
   if (isLoading) {
@@ -124,11 +153,11 @@ export function ICTDetail() {
             <div className="row mb-4">
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Requisition Date</label>
-                <div className="fw-semibold">{r.requisition_date}</div>
+                <div className="fw-semibold">{formatDateDMY(r.requisition_date)}</div>
               </div>
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Requirement Date</label>
-                <div className="fw-semibold">{r.requirement_date}</div>
+                <div className="fw-semibold">{formatDateDMY(r.requirement_date)}</div>
               </div>
               <div className="col-md-4 mb-2">
                 <label className="form-label text-muted small mb-1">Return Date</label>
@@ -177,7 +206,8 @@ export function ICTDetail() {
               <div className="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
                 <i className="bi bi-check-circle-fill text-success"></i>
                 <span>
-                  <strong>1st Approval:</strong> {r.first_approver} on {r.first_approved_at}
+                  <strong>1st Approval:</strong> {r.first_approver_name} on{' '}
+                  {formatStamp(r.first_approved_at)}
                 </span>
               </div>
             )}
@@ -185,7 +215,8 @@ export function ICTDetail() {
               <div className="mb-2 p-3 bg-light rounded d-flex align-items-center gap-2">
                 <i className="bi bi-check-circle-fill text-success"></i>
                 <span>
-                  <strong>2nd Approval:</strong> {r.second_approver} on {r.second_approved_at}
+                  <strong>2nd Approval:</strong> {r.second_approver_name} on{' '}
+                  {formatStamp(r.second_approved_at)}
                 </span>
               </div>
             )}
@@ -205,14 +236,55 @@ export function ICTDetail() {
             )}
 
             <hr />
-            <div className="d-flex gap-2">
+            <div className="d-flex gap-2 flex-wrap">
               <Link to="/ict" className="btn btn-outline-secondary">
                 <i className="bi bi-arrow-left me-1"></i> Back
               </Link>
+              {act?.can_act && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    onClick={() => approveMutation.mutate()}
+                    disabled={approveMutation.isPending}
+                  >
+                    <i className="bi bi-check-lg me-1"></i> Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => setShowReject(true)}
+                  >
+                    <i className="bi bi-x-lg me-1"></i> Reject
+                  </button>
+                </>
+              )}
+              {approveMutation.isError && (
+                <div className="w-100 alert alert-danger py-2 mb-0">
+                  <i className="bi bi-exclamation-triangle me-1"></i>
+                  {(
+                    approveMutation.error as { response?: { data?: { error?: string } } }
+                  )?.response?.data?.error || 'Could not approve this requisition.'}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      <ReasonModal
+        open={showReject}
+        title="Reject Requisition"
+        label="Reason"
+        placeholder="What does the requester need to fix?"
+        helpText="The requester is emailed this reason."
+        confirmLabel="Reject"
+        confirmClassName="btn-danger"
+        onSubmit={async (reason) => {
+          await rejectMutation.mutateAsync(reason)
+        }}
+        onClose={() => setShowReject(false)}
+      />
     </div>
   )
 }

@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from django.db.models import Q
 from django.urls import reverse
+from django_q.tasks import async_task
 from .models import EmailConfig
 
 signer = TimestampSigner(salt='requisition-action')

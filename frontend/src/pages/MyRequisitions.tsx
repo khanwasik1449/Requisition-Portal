@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { formatDateDayMonthYear } from '@/lib/utils'
 
 interface MyReqItem {
   id: number
@@ -95,7 +96,7 @@ export function MyRequisitions() {
                       {item.status_label}
                     </span>
                   </td>
-                  <td data-label="Date">{item.created_at}</td>
+                  <td data-label="Date">{formatDateDayMonthYear(item.created_at)}</td>
                   <td>
                     <Link
                       to={`/${item.type.toLowerCase()}/${item.id}`}
