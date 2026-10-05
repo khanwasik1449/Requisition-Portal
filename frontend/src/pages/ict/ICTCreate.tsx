@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { useStaffDefaults } from '@/lib/staffDefaults'
 
 const equipmentOptions = [
   'Audio Recorder', 'Apple Keyboard', 'Apple Pencil', 'Bluetooth Mouse Battery', 'CPU', 'Charger',
@@ -24,6 +25,7 @@ export function ICTCreate() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
   const [otherEquipment, setOtherEquipment] = useState('')
   const [otherEnabled, setOtherEnabled] = useState(false)
+  const staffDefaults = useStaffDefaults()
 
   const toggleEquipment = (name: string) => {
     setSelectedEquipment((prev) =>
@@ -95,6 +97,7 @@ export function ICTCreate() {
                     name="full_name"
                     className="form-control"
                     placeholder="Your full name"
+                    defaultValue={staffDefaults.full_name}
                     required
                   />
                 </div>
@@ -107,6 +110,7 @@ export function ICTCreate() {
                     name="email_address"
                     className="form-control"
                     placeholder="email@example.com"
+                    defaultValue={staffDefaults.email_address}
                     required
                   />
                 </div>
@@ -146,6 +150,7 @@ export function ICTCreate() {
                     name="contact_number"
                     className="form-control"
                     placeholder="e.g. +254 7XX XXX XXX"
+                    defaultValue={staffDefaults.mobile_number}
                     required
                   />
                 </div>

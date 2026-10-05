@@ -8,6 +8,7 @@ import { MyRequisitions } from './pages/MyRequisitions'
 import { TransportList } from './pages/transport/TransportList'
 import { TransportCreate } from './pages/transport/TransportCreate'
 import { TransportDetail } from './pages/transport/TransportDetail'
+import { TransportTrack } from './pages/transport/TransportTrack'
 import { MeetSpaceList } from './pages/meetspace/MeetSpaceList'
 import { MeetSpaceBooking } from './pages/meetspace/MeetSpaceBooking'
 import { MeetSpaceDetail } from './pages/meetspace/MeetSpaceDetail'
@@ -17,12 +18,17 @@ import { ICTDetail } from './pages/ict/ICTDetail'
 import { InternalList } from './pages/internal/InternalList'
 import { InternalCreate } from './pages/internal/InternalCreate'
 import { InternalDetail } from './pages/internal/InternalDetail'
+import { TransportHistory } from './pages/transport/TransportHistory'
+import { TransportReport } from './pages/transport/TransportReport'
 import { ContractsList } from './pages/contracts/ContractsList'
 import { EmployeesList } from './pages/employees/EmployeesList'
 import { PayslipList } from './pages/payslip/PayslipList'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { FormBuilder } from './pages/admin/FormBuilder'
 import { WorkflowEditor } from './pages/admin/WorkflowEditor'
+import { EmailSettings } from './pages/admin/EmailSettings'
+import { EmailLogs } from './pages/admin/EmailLogs'
+import { AuditLog } from './pages/admin/AuditLog'
 import { Profile } from './pages/Profile'
 import { NotFound } from './pages/NotFound'
 
@@ -60,8 +66,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      {/* Public routes (no sidebar layout) */}
-      <Route path="/" element={<Home />} />
+      {/* The landing URL is the sign-in screen; the public landing page is
+          still reachable at /home for reference. */}
+      <Route path="/" element={<Login />} />
+      <Route path="/home" element={<Home />} />
       <Route path="/login" element={
         <PublicRoute>
           <Login />
@@ -81,8 +89,20 @@ export default function App() {
         <Route path="/my-requisitions" element={<MyRequisitions />} />
         <Route path="/profile" element={<Profile />} />
 
-        {/* Transport */}
+        {/* Transport — `history` and `report` are static segments and must be
+            declared before `/transport/:id`, otherwise they are read as a pk. */}
         <Route path="/transport" element={<TransportList />} />
+        <Route path="/transport/history" element={
+          <ProtectedRoute allowedRoles={['admin', 'transport_admin']}>
+            <TransportHistory />
+          </ProtectedRoute>
+        } />
+        <Route path="/transport/report" element={
+          <ProtectedRoute allowedRoles={['admin', 'transport_admin']}>
+            <TransportReport />
+          </ProtectedRoute>
+        } />
+        <Route path="/transport/track" element={<TransportTrack />} />
         <Route path="/transport/:id" element={<TransportDetail />} />
 
         {/* MeetSpace */}
@@ -118,6 +138,21 @@ export default function App() {
         <Route path="/admin/workflow-editor" element={
           <ProtectedRoute allowedRoles={['admin', 'transport_admin']}>
             <WorkflowEditor />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/email-settings" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <EmailSettings />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/email-logs" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <EmailLogs />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/audit-log" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AuditLog />
           </ProtectedRoute>
         } />
       </Route>

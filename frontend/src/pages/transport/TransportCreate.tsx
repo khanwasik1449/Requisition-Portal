@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { useStaffDefaults } from '@/lib/staffDefaults'
 
 // Replica of templates/transport_requisition/form.html (multi-step wizard)
 const stepTitles = ['Personal Information', 'Trip Details', 'Additional Information', 'Review']
@@ -79,6 +80,21 @@ export function TransportCreate() {
   const [formData, setFormData] = useState<Record<string, string>>({})
   const [showSafety, setShowSafety] = useState(false)
   const [showVendor, setShowVendor] = useState(false)
+
+  const staffDefaults = useStaffDefaults()
+
+  // Pre-fill the applicant's personal details from their account. The auth
+  // call resolves after mount on a hard refresh of this (public) route, so the
+  // values are pushed in as they arrive — and never over anything the
+  // applicant has already typed.
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      full_name: prev.full_name || staffDefaults.full_name,
+      email_address: prev.email_address || staffDefaults.email_address,
+      mobile_number: prev.mobile_number || staffDefaults.mobile_number,
+    }))
+  }, [staffDefaults.full_name, staffDefaults.email_address, staffDefaults.mobile_number])
 
   const totalSteps = stepTitles.length
 

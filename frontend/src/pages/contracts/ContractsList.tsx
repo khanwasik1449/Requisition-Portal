@@ -40,7 +40,9 @@ export function ContractsList() {
   const { data: contracts, isLoading } = useQuery({
     queryKey: ['contracts'],
     queryFn: async () => {
-      const response = await api.get<Contract[]>('/contracts/')
+      // Paginated DRF response -- the page used to read the envelope itself as
+      // an array, which rendered an always-empty table.
+      const response = await api.get<{ results: Contract[] }>('/contracts/')
       return response.data
     },
   })
@@ -82,14 +84,14 @@ export function ContractsList() {
                       </div>
                     </td>
                   </tr>
-                ) : contracts?.length === 0 ? (
+                ) : contracts?.results.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center text-muted py-4">
                       No contracts found.
                     </td>
                   </tr>
                 ) : (
-                  contracts?.map((c) => {
+                  contracts?.results.map((c) => {
                     const status = computeStatus(c.end_date)
                     return (
                       <tr key={c.id}>

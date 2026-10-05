@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import timedelta
@@ -14,18 +16,24 @@ from transport_requisition.models import TransportRequisition, Vehicle, Driver
 from meetspace.models import Booking, Room, Announcement
 from ict_requisition.models import ICTRequisition
 from internal_requisition.models import InternalRequisition
-from contracts.models import Contract, EmailConfig, EmailLog
+from contracts.models import Contract
 from employees.models import Employee
 from payslip.models import Payslip, PayslipRequest
 from portal_config.models import Module, FormField, WorkflowStage
-from notifications.models import AuditLog, EmailLog as NotificationEmailLog
+# See the note in serializers.py: the sidebar email pages use the
+# notifications models, not contracts' own EmailConfig/EmailLog.
+from notifications.models import (
+    AuditLog, EmailConfig, EmailLog,
+    EmailLog as NotificationEmailLog,
+)
 
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, ChangePasswordSerializer,
     VehicleSerializer, DriverSerializer,
     TransportRequisitionListSerializer, TransportRequisitionDetailSerializer,
     TransportRequisitionCreateSerializer, TransportRequisitionUpdateSerializer,
-    TransportRequisitionActionSerializer,
+    TransportRequisitionActionSerializer, TransportTrackSerializer,
+    TransportHistorySerializer, TransportReportSerializer,
     RoomSerializer, BookingListSerializer, BookingDetailSerializer,
     BookingCreateSerializer, BookingActionSerializer, AnnouncementSerializer,
     ICTRequisitionListSerializer, ICTRequisitionDetailSerializer,
@@ -561,7 +569,9 @@ class InternalRequisitionViewSet(viewsets.ModelViewSet):
 
 # Contracts ViewSets
 class ContractViewSet(viewsets.ModelViewSet):
-    queryset = Contract.objects.select_related('employee').all()
+    # Contract is keyed by `pin`, not by a FK to Employee -- there is nothing
+    # to select_related here.
+    queryset = Contract.objects.all()
     serializer_class = ContractSerializer
     permission_classes = [IsHRAdmin | IsAdminUser]
 
@@ -577,47 +587,93 @@ class EmailLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = EmailLogSerializer
     permission_classes = [IsAdminUser]
 
+    def get_queryset(self):
+        # The Django page shows the most recent 100 and nothing older.
+        return EmailLog.objects.all()[:100]
+
+    def list(self, request, *args, **kwargs):
+        serializer = self.get_serializer(self.get_queryset(), many=True)
+        return Response({
+            'count': EmailLog.objects.count(),
+            'failed_count': EmailLog.objects.filter(status='failed').count(),
+            'results': serializer.data,
+        })
+
+    @action(detail=True, methods=['post'])
+    def retry(self, request, pk=None):
+        """Re-send one failed approval request -- mirrors notifications.views.retry_email."""
+        from notifications.views import _get_req_model
+        from notifications.utils import send_approval_request
+
+        log = self.get_object()
+        if log.status == EmailLog.Status.SUCCESS:
+            return Response({'detail': 'This email was already sent successfully.'})
+
+        if not (log.email_type == 'approval_request' and log.req_type and log.req_id):
+            return Response({'detail': 'Cannot retry this email automatically.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        model = _get_req_model(log.req_type)
+        if not model:
+            return Response({'detail': 'Unknown requisition type.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            requisition = model.objects.get(pk=log.req_id)
+        except model.DoesNotExist:
+            return Response({'detail': 'Requisition not found.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        # The requisition's own status is the stage it is sitting at, so the
+        # reminder goes to whoever owns that stage.
+        send_approval_request(log.department, requisition, log.req_type,
+                              requisition.status)
+        return Response({'detail': f'Retry initiated for #{log.req_id}.'})
+
+    @action(detail=False, methods=['post'])
+    def retry_all(self, request):
+        """Re-send every failed approval request -- mirrors retry_all_failed."""
+        from notifications.views import _get_req_model
+        from notifications.utils import send_approval_request
+
+        retried = 0
+        for log in EmailLog.objects.filter(status=EmailLog.Status.FAILED):
+            if not (log.email_type == 'approval_request' and log.req_type and log.req_id):
+                continue
+            model = _get_req_model(log.req_type)
+            if not model:
+                continue
+            try:
+                requisition = model.objects.get(pk=log.req_id)
+            except model.DoesNotExist:
+                continue
+            send_approval_request(log.department, requisition, log.req_type,
+                                  requisition.status)
+            retried += 1
+        return Response({'detail': f'Retried {retried} failed email(s).'})
+
 
 # Employees ViewSet
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = Employee.objects.select_related('user').all()
+    # Employee has no FK to User (it is keyed by PIN); its only relation is the
+    # reverse `employeesalary`, so no join is possible here.
+    queryset = Employee.objects.all()
     serializer_class = EmployeeSerializer
     permission_classes = [IsHRAdmin | IsAdminUser]
 
 
 # Payslip ViewSets
 class PayslipViewSet(viewsets.ModelViewSet):
-    queryset = Payslip.objects.select_related('employee').all()
+    # Payslip has no relations at all -- it is a flat row keyed by PIN.
+    queryset = Payslip.objects.all()
     serializer_class = PayslipSerializer
     permission_classes = [IsHRAdmin | IsAdminUser]
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = super().get_queryset()
-        if user.is_admin() or user.is_hr_admin():
-            return qs
-        return qs.filter(employee__user=user)
-
 
 class PayslipRequestViewSet(viewsets.ModelViewSet):
-    queryset = PayslipRequest.objects.select_related('employee').all()
+    # PayslipRequest is also relation-free (name / pin / months / year).
+    queryset = PayslipRequest.objects.all()
     serializer_class = PayslipRequestSerializer
     permission_classes = [IsRequester]
-
-    def get_queryset(self):
-        user = self.request.user
-        qs = super().get_queryset()
-        if user.is_admin() or user.is_hr_admin():
-            return qs
-        return qs.filter(employee__user=user)
-
-    def perform_create(self, serializer):
-        # Get employee for current user
-        try:
-            employee = Employee.objects.get(user=self.request.user)
-            serializer.save(employee=employee)
-        except Employee.DoesNotExist:
-            serializer.save()
 
 
 # Portal Config ViewSets
@@ -641,7 +697,8 @@ class WorkflowStageViewSet(viewsets.ModelViewSet):
 
 # Notifications ViewSets
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AuditLog.objects.select_related('user').all()
+    # The actor FK is `performed_by` -- AuditLog has no `user` field.
+    queryset = AuditLog.objects.select_related('performed_by').all()
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdminUser]
 
@@ -722,6 +779,266 @@ def dashboard_stats(request):
 
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
+def transport_track(request):
+    """Public self-service status lookup by email address.
+
+    Mirrors ``transport_requisition.views.track_view``: only requisitions whose
+    ``email_address`` matches exactly (case-insensitive) are returned, so this
+    cannot be used to enumerate other people's requests.
+    """
+    email = (request.query_params.get('email') or '').strip()
+    if not email:
+        return Response({'detail': 'Enter the email address you used.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({'detail': 'Enter a valid email address.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    requisitions = TransportRequisition.objects.filter(
+        email_address__iexact=email
+    ).order_by('-created_at')
+    return Response(TransportTrackSerializer(requisitions, many=True).data)
+
+
+def _transport_stage_options():
+    """The configured approval chain, for the status filter dropdown.
+
+    Built from the workflow engine exactly as the Django templates do it, so a
+    newly added stage shows up here without touching this file.
+    """
+    from portal_config import engine
+    return [{'key': s.key, 'name': s.name} for s in engine.get_stages('transport')]
+
+
+@api_view(['GET'])
+@permission_classes([IsRequester])
+def my_requisitions(request):
+    """Every requisition the signed-in user owns, newest first.
+
+    Reuses the Django view's own REQUISITION_TYPES / STATUS_LABELS maps so the
+    labels here can never drift from ``templates/my_requisitions.html``.
+    """
+    from requisition_portal.views import REQUISITION_TYPES, STATUS_LABELS, visible_types
+
+    items = []
+    for key in visible_types():
+        model, label, icon, field, _url_name = REQUISITION_TYPES[key]
+        for r in model.objects.filter(user=request.user).values(
+                'pk', 'request_number', field, 'status', 'created_at'):
+            raw = r[field] or ''
+            items.append({
+                # `d M Y`, matching the template's `{{ item.created_at|date:"d M Y" }}`.
+                # Kept alongside the raw datetime so sorting happens on the real
+                # value -- formatted strings would sort wrongly across months.
+                'created_at': r['created_at'].strftime('%d %b %Y'),
+                '_ts': r['created_at'],
+                'id': r['pk'],
+                'type': label,
+                'type_icon': icon,
+                'request_number': r['request_number'],
+                'summary': raw.split('\n')[0][:60],
+                'status': r['status'],
+                'status_label': STATUS_LABELS.get(r['status'], r['status']),
+                'url': key,
+            })
+
+    items.sort(key=lambda x: x['_ts'], reverse=True)
+    for item in items:
+        del item['_ts']
+    return Response(items)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def portal_choices(request):
+    """Choice lists the admin configurators render.
+
+    Read from the models themselves so the Workflow Editor and Email Settings
+    pages can never offer a choice the backend would reject.
+    """
+    from accounts.models import User
+    from notifications.models import Department
+    from portal_config.models import StageAction
+
+    return Response({
+        'roles': [{'value': v, 'label': l} for v, l in User.Role.choices],
+        'stage_actions': [{'value': a.value, 'label': a.label} for a in StageAction],
+        'departments': [{'value': v, 'label': l} for v, l in Department.choices],
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsTransportAdmin])
+def transport_history(request):
+    """Admin-only tracking history: every request plus its audit trail.
+
+    Mirrors ``transport_requisition.views.history_view``, filters included.
+    """
+    qs = TransportRequisition.objects.all().order_by('-created_at')
+    search = (request.query_params.get('q') or '').strip()
+    status_filter = request.query_params.get('status') or ''
+    date_from = request.query_params.get('date_from') or ''
+    date_to = request.query_params.get('date_to') or ''
+
+    if search:
+        qs = qs.filter(Q(email_address__icontains=search)
+                       | Q(full_name__icontains=search)
+                       | Q(request_number__icontains=search)
+                       | Q(pin__icontains=search)
+                       | Q(destination__icontains=search))
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+
+    requisitions = list(qs)
+
+    # One query for the whole result set, then attach per row so the serializer
+    # can iterate directly (the template does the same thing).
+    trail = {}
+    if requisitions:
+        for entry in AuditLog.objects.filter(
+                req_type='transport', req_id__in=[r.pk for r in requisitions]
+        ).order_by('created_at'):
+            trail.setdefault(entry.req_id, []).append(entry)
+    for r in requisitions:
+        r.trail = trail.get(r.pk, [])
+
+    return Response({
+        'counts': {
+            'total': TransportRequisition.objects.count(),
+            'pending': TransportRequisition.objects.filter(
+                status__in=TransportRequisition.PENDING_STATUSES).count(),
+            'approved': TransportRequisition.objects.filter(
+                status__in=['approved', 'assigned']).count(),
+            'rejected': TransportRequisition.objects.filter(
+                status='rejected').count(),
+            'public': TransportRequisition.objects.filter(user__isnull=True).count(),
+        },
+        'stages': _transport_stage_options(),
+        'results': TransportHistorySerializer(requisitions, many=True).data,
+    })
+
+
+def _transport_report_qs(request):
+    """Apply the report's date/status filters -- shared by the view and its export."""
+    qs = TransportRequisition.objects.all()
+    date_from = request.query_params.get('date_from') or ''
+    date_to = request.query_params.get('date_to') or ''
+    status_filter = request.query_params.get('status') or ''
+
+    if date_from:
+        qs = qs.filter(pick_up_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(pick_up_date__lte=date_to)
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    return qs
+
+
+@api_view(['GET'])
+@permission_classes([IsTransportAdmin])
+def transport_report(request):
+    """Filtered report over transport requisitions.
+
+    Mirrors ``transport_requisition.views.report_view``: the date filters apply
+    to `pick_up_date` (not `created_at`), matching the original.
+    """
+    qs = _transport_report_qs(request)
+
+    return Response({
+        'counts': {
+            'total': qs.count(),
+            'approved': qs.filter(status__in=['approved', 'assigned']).count(),
+            'rejected': qs.filter(status='rejected').count(),
+            'pending': qs.filter(status__in=list(TransportRequisition.PENDING_STATUSES)).count(),
+        },
+        'stages': _transport_stage_options(),
+        'results': TransportReportSerializer(qs, many=True).data,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsTransportAdmin])
+def transport_report_export(request):
+    """Excel export of whatever the report is currently filtered to.
+
+    Mirrors ``transport_requisition.views.export_excel_view`` -- same headers,
+    same column order, same header styling. Returned as a plain file response
+    so the browser can save it directly.
+    """
+    import io
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, Border, Side
+    from django.http import HttpResponse
+
+    qs = _transport_report_qs(request)
+
+    headers = [
+        'Request #', 'Name', 'Email', 'Mobile', 'Designation', 'PIN', 'Passengers',
+        'Vehicle Type', 'Pick-up Date', 'Pick-up Time', 'Pick-up Location',
+        'Destination', 'Drop-off Date', 'Drop-off Time', 'Drop-off Location',
+        'Travelling Reason', 'Project Name/Code', 'Budget Code',
+        'Driver', 'Car No', 'Driver Cell', 'Status',
+    ]
+
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = openpyxl.styles.PatternFill(
+        start_color='D97706', end_color='D97706', fill_type='solid')
+    thin_border = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin'),
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Transport Requisitions'
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = thin_border
+
+    for row, r in enumerate(qs, 2):
+        data = [
+            r.request_number, r.full_name, r.email_address, r.mobile_number,
+            r.designation, r.pin, r.num_passengers, r.get_vehicle_type_display(),
+            r.pick_up_date, str(r.pick_up_time), r.pick_up_location,
+            r.destination, r.drop_off_date, str(r.drop_off_time), r.drop_off_location,
+            r.travelling_reason, r.project_name_code, r.budget_code,
+            r.driver.name if r.driver_id else '',
+            r.driver.car_no if r.driver_id else '',
+            r.driver.cell_number if r.driver_id else '',
+            r.get_status_display(),
+        ]
+        for col, val in enumerate(data, 1):
+            ws.cell(row=row, column=col, value=val).border = thin_border
+
+    for col in range(1, len(headers) + 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 18
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = (
+        'attachment; '
+        f'filename="transport_requisitions_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+    )
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
 def public_modules(request):
     """Return the modules shown on the public landing page.
 
@@ -744,7 +1061,9 @@ def module_form_fields(request, module_key):
     except Module.DoesNotExist:
         return Response({'error': 'Module not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    fields = FormField.objects.filter(module=module, is_active=True).order_by('step', 'order')
+    # FormField has no `is_active` column -- the module's own switch is what
+    # gates routing, so order the whole chain here instead.
+    fields = FormField.objects.filter(module=module).order_by('step', 'order')
     return Response(FormFieldSerializer(fields, many=True).data)
 
 

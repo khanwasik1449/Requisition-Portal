@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/hooks'
+import { useVisibleHomeCards, type HomeCard } from '@/lib/homeCards'
 
 // Exact replica of Django templates/base.html layout
 
@@ -43,11 +44,58 @@ export function Layout() {
   const { user, logout } = useAuth()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [reqOpen, setReqOpen] = useState(false)
+  const reqRef = useRef<HTMLDivElement>(null)
 
-  // Close sidebar on route change (mobile)
+  // The landing-page cards, gated on VISIBLE_MODULES exactly as the Django
+  // template gates them — this is the "Requisitions" menu contents.
+  const { cards: requisitionCards, loading: cardsLoading } = useVisibleHomeCards()
+
+  // Close sidebar and the Requisitions menu on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false)
+    setReqOpen(false)
   }, [location.pathname])
+
+  // Close the Requisitions menu when clicking anywhere outside it
+  useEffect(() => {
+    if (!reqOpen) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (reqRef.current && !reqRef.current.contains(event.target as Node)) setReqOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [reqOpen])
+
+  const requisitionItem = (card: HomeCard) => {
+    const label = (
+      <>
+        <i className={`bi ${card.icon} me-2`}></i>
+        {card.title}
+      </>
+    )
+
+    if (card.href) {
+      return (
+        <a
+          className="dropdown-item d-flex align-items-center justify-content-between"
+          href={card.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setReqOpen(false)}
+        >
+          <span>{label}</span>
+          <i className="bi bi-box-arrow-up-right ms-3 small opacity-50"></i>
+        </a>
+      )
+    }
+
+    return (
+      <Link className="dropdown-item d-flex align-items-center" to={card.to || '/'} onClick={() => setReqOpen(false)}>
+        {label}
+      </Link>
+    )
+  }
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return location.pathname === '/dashboard'
@@ -82,6 +130,12 @@ export function Layout() {
   } else if (path === '/my-requisitions') {
     pageTitle = 'My Requisitions'
     pageSubtitle = 'All your submissions in one place'
+  } else if (path === '/transport/history') {
+    pageTitle = 'Tracking History'
+    pageSubtitle = 'Enterprise Resource Management'
+  } else if (path === '/transport/report') {
+    pageTitle = 'Transport Requisition Report'
+    pageSubtitle = 'Enterprise Resource Management'
   } else if (path.startsWith('/transport')) {
     pageTitle = 'Transport Requisitions'
     pageSubtitle = 'Vehicle transport and trip requests'
@@ -106,6 +160,21 @@ export function Layout() {
   } else if (path.startsWith('/admin/users')) {
     pageTitle = 'User Management'
     pageSubtitle = 'Manage users and roles'
+  } else if (path.startsWith('/admin/email-settings')) {
+    pageTitle = 'Email Configurations'
+    pageSubtitle = 'Enterprise Resource Management'
+  } else if (path.startsWith('/admin/email-logs')) {
+    pageTitle = 'Email Logs'
+    pageSubtitle = 'Enterprise Resource Management'
+  } else if (path.startsWith('/admin/audit-log')) {
+    pageTitle = 'Audit Log'
+    pageSubtitle = 'Track all requisition activity'
+  } else if (path.startsWith('/admin/form-builder')) {
+    pageTitle = 'Portal Configuration'
+    pageSubtitle = 'Enterprise Resource Management'
+  } else if (path.startsWith('/admin/workflow-editor')) {
+    pageTitle = 'Approval Workflow'
+    pageSubtitle = 'Enterprise Resource Management'
   } else if (path.startsWith('/documentation')) {
     pageTitle = 'Documentation'
     pageSubtitle = 'Guides and references'
@@ -183,6 +252,31 @@ export function Layout() {
             </div>
           </div>
           <div className="topbar-right">
+            {/* Requisitions launcher — the landing-page cards, minus Staff Sign In */}
+            <div className="dropdown topbar-requisitions" ref={reqRef}>
+              <button
+                type="button"
+                className={`btn btn-primary dropdown-toggle ${reqOpen ? 'show' : ''}`}
+                onClick={() => setReqOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={reqOpen}
+              >
+                <i className="bi bi-plus-circle me-1"></i> Requisitions
+              </button>
+              <ul
+                className={`dropdown-menu dropdown-menu-end ${reqOpen ? 'show' : ''}`}
+                role="menu"
+              >
+                {cardsLoading ? (
+                  <li>
+                    <span className="dropdown-item-text small text-muted">Loading…</span>
+                  </li>
+                ) : (
+                  requisitionCards.map((card) => <li key={card.key}>{requisitionItem(card)}</li>)
+                )}
+              </ul>
+            </div>
+
             <div className="topbar-user">
               <div className="topbar-user-info">
                 <div className="name">{user?.username}</div>

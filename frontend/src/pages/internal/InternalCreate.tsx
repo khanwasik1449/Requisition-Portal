@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { useStaffDefaults } from '@/lib/staffDefaults'
 
 interface ItemRow {
   name: string
@@ -14,6 +15,7 @@ export function InternalCreate() {
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [items, setItems] = useState<ItemRow[]>([{ name: '', quantity: 1, purpose: '' }])
+  const staffDefaults = useStaffDefaults()
 
   const addItem = () => {
     setItems([...items, { name: '', quantity: 1, purpose: '' }])
@@ -76,13 +78,25 @@ export function InternalCreate() {
                   <label className="form-label">
                     Email Address <span className="text-danger">*</span>
                   </label>
-                  <input type="email" name="email_address" className="form-control" required />
+                  <input
+                    type="email"
+                    name="email_address"
+                    className="form-control"
+                    defaultValue={staffDefaults.email_address}
+                    required
+                  />
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">
                     Full Name <span className="text-danger">*</span>
                   </label>
-                  <input type="text" name="full_name" className="form-control" required />
+                  <input
+                    type="text"
+                    name="full_name"
+                    className="form-control"
+                    defaultValue={staffDefaults.full_name}
+                    required
+                  />
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">
@@ -93,6 +107,7 @@ export function InternalCreate() {
                     name="mobile_number"
                     className="form-control"
                     placeholder="e.g. 017XX-XXXXXX"
+                    defaultValue={staffDefaults.mobile_number}
                     required
                   />
                 </div>

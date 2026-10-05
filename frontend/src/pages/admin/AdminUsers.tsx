@@ -20,18 +20,18 @@ export function AdminUsers() {
   const { data: users, isLoading } = useQuery({
     queryKey: ['adminUsers'],
     queryFn: async () => {
-      const response = await api.get<{ results: AdminUser[] }>('/admin/users/')
+      const response = await api.get<{ results: AdminUser[] }>('/users/')
       return response.data
     },
   })
 
   const approveMutation = useMutation({
-    mutationFn: (id: number) => api.post(`/admin/users/${id}/approve/`),
+    mutationFn: (id: number) => api.post(`/users/${id}/approve/`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminUsers'] }),
   })
 
   const deactivateMutation = useMutation({
-    mutationFn: (id: number) => api.post(`/admin/users/${id}/deactivate/`),
+    mutationFn: (id: number) => api.post(`/users/${id}/deactivate/`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminUsers'] }),
   })
 

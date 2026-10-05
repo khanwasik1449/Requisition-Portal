@@ -1,12 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { useStaffDefaults } from '@/lib/staffDefaults'
 
 // Exact replica of meetspace/templates/meetspace/booking_form.html
 export function MeetSpaceBooking() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const staffDefaults = useStaffDefaults()
+  const emailRef = useRef<HTMLInputElement>(null)
+
+  // This route is public, so the signed-in account may only arrive after the
+  // first render. Fill the address in then, if the applicant left it blank.
+  useEffect(() => {
+    if (emailRef.current && !emailRef.current.value) {
+      emailRef.current.value = staffDefaults.email_address
+    }
+  }, [staffDefaults.email_address])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -84,7 +95,14 @@ export function MeetSpaceBooking() {
                 </div>
                 <div className="col-12">
                   <label className="form-label">Email address</label>
-                  <input type="email" name="email_address" className="form-control" required />
+                  <input
+                    type="email"
+                    name="email_address"
+                    className="form-control"
+                    ref={emailRef}
+                    defaultValue={staffDefaults.email_address}
+                    required
+                  />
                   <div className="form-text">
                     Used to track your booking and receive notifications.
                   </div>

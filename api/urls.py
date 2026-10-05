@@ -14,6 +14,8 @@ from .views import (
     ModuleViewSet, FormFieldViewSet, WorkflowStageViewSet,
     AuditLogViewSet, NotificationEmailLogViewSet,
     dashboard_stats, public_modules, module_form_fields, module_workflow,
+    transport_track, transport_history, transport_report, transport_report_export,
+    my_requisitions, portal_choices,
 )
 
 router = DefaultRouter()
@@ -23,6 +25,10 @@ router.register(r'drivers', DriverViewSet, basename='driver')
 router.register(r'transport', TransportRequisitionViewSet, basename='transport')
 router.register(r'rooms', RoomViewSet, basename='room')
 router.register(r'bookings', BookingViewSet, basename='booking')
+# The React pages address bookings under the app's own namespace
+# (`/meetspace/`, matching Django's `meetspace:` urls), while the router's
+# resource name is `bookings`. Register both so either path resolves.
+router.register(r'meetspace', BookingViewSet, basename='meetspace')
 router.register(r'announcements', AnnouncementViewSet, basename='announcement')
 router.register(r'ict', ICTRequisitionViewSet, basename='ict')
 router.register(r'internal', InternalRequisitionViewSet, basename='internal')
@@ -49,11 +55,20 @@ urlpatterns = [
 
     # Dashboard
     path('dashboard/stats/', dashboard_stats, name='dashboard-stats'),
+    path('my-requisitions/', my_requisitions, name='my-requisitions'),
+    path('portal-choices/', portal_choices, name='portal-choices'),
 
     # Public endpoints
     path('public/modules/', public_modules, name='public-modules'),
     path('public/modules/<str:module_key>/fields/', module_form_fields, name='public-module-fields'),
     path('public/modules/<str:module_key>/workflow/', module_workflow, name='public-module-workflow'),
+    # Registered before the router: `transport/track/` would otherwise be
+    # swallowed by the router's `transport/<pk>/` detail pattern. Same for
+    # `history/` and `report/`, which would be read as a pk of "history".
+    path('transport/track/', transport_track, name='transport-track'),
+    path('transport/history/', transport_history, name='transport-history'),
+    path('transport/report/', transport_report, name='transport-report'),
+    path('transport/report/export/', transport_report_export, name='transport-report-export'),
 
     # Router
     path('', include(router.urls)),

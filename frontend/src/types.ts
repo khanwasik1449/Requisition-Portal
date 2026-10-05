@@ -19,7 +19,8 @@ export interface User {
   email: string
   first_name: string
   last_name: string
-  full_name: string
+  /** Not returned by the API — the account has no such column. */
+  full_name?: string
   role: UserRole
   role_display: string
   department?: string
