@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 
 interface InternalRequisition {
   id: number
@@ -43,8 +43,7 @@ export function InternalList() {
   const { data, isLoading } = useQuery({
     queryKey: ['internal'],
     queryFn: async () => {
-      const response = await api.get<{ results: InternalRequisition[] }>('/internal/')
-      return response.data
+      return getAllResults<InternalRequisition>('/internal/')
     },
   })
 

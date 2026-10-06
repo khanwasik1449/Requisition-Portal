@@ -504,7 +504,7 @@ export function MeetSpaceDetail() {
 
             <hr />
             <div className="d-flex flex-wrap gap-2">
-              <Link to="/meetspace" className="btn btn-outline-secondary">
+              <Link to="/meetspace/bookings" className="btn btn-outline-secondary">
                 <i className="bi bi-arrow-left me-1"></i> Back
               </Link>
 

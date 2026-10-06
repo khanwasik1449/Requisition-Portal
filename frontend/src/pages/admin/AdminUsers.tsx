@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 import { formatDateDMY } from '@/lib/utils'
 
 interface AdminUser {
@@ -21,8 +23,7 @@ export function AdminUsers() {
   const { data: users, isLoading } = useQuery({
     queryKey: ['adminUsers'],
     queryFn: async () => {
-      const response = await api.get<{ results: AdminUser[] }>('/users/')
-      return response.data
+      return getAllResults<AdminUser>('/users/')
     },
   })
 
@@ -45,9 +46,9 @@ export function AdminUsers() {
             Manage users, approve accounts, and assign roles
           </p>
         </div>
-        <button className="btn btn-primary">
+        <Link to="/admin/users/create" className="btn btn-primary">
           <i className="bi bi-plus-lg me-1"></i> Add User
-        </button>
+        </Link>
       </div>
 
       <div className="card">
@@ -114,9 +115,13 @@ export function AdminUsers() {
                       <td className="text-muted small">{formatDateDMY(u.date_joined)}</td>
                       <td className="text-end">
                         <div className="d-flex gap-1 justify-content-end">
-                          <button className="btn btn-sm btn-outline-secondary" title="Edit">
+                          <Link
+                            to={`/admin/users/${u.id}/edit`}
+                            className="btn btn-sm btn-outline-secondary"
+                            title="Edit"
+                          >
                             <i className="bi bi-pencil"></i>
-                          </button>
+                          </Link>{' '}
                           {!u.is_active ? (
                             <button
                               className="btn btn-sm btn-success"

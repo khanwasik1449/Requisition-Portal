@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 
 interface EmailConfig {
   id: number
@@ -38,8 +39,7 @@ export function EmailSettings() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['emailConfigs'],
     queryFn: async () => {
-      const response = await api.get<{ results: EmailConfig[] }>('/email-configs/')
-      return response.data
+      return getAllResults<EmailConfig>('/email-configs/')
     },
   })
 

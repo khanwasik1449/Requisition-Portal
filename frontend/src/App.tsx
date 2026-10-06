@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './auth/hooks'
 import { Layout } from './components/layout/Layout'
+import { PublicLayout } from './components/layout/PublicLayout'
 import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { Dashboard } from './pages/Dashboard'
@@ -9,9 +10,15 @@ import { TransportList } from './pages/transport/TransportList'
 import { TransportCreate } from './pages/transport/TransportCreate'
 import { TransportDetail } from './pages/transport/TransportDetail'
 import { TransportTrack } from './pages/transport/TransportTrack'
+import { MeetSpaceDashboard } from './pages/meetspace/MeetSpaceDashboard'
 import { MeetSpaceList } from './pages/meetspace/MeetSpaceList'
 import { MeetSpaceBooking } from './pages/meetspace/MeetSpaceBooking'
 import { MeetSpaceDetail } from './pages/meetspace/MeetSpaceDetail'
+import { MeetSpaceTrack } from './pages/meetspace/MeetSpaceTrack'
+import { RoomList } from './pages/meetspace/RoomList'
+import { RoomForm } from './pages/meetspace/RoomForm'
+import { RoomAvailability } from './pages/meetspace/RoomAvailability'
+import { AnnouncementForm } from './pages/meetspace/AnnouncementForm'
 import { ICTList } from './pages/ict/ICTList'
 import { ICTCreate } from './pages/ict/ICTCreate'
 import { ICTDetail } from './pages/ict/ICTDetail'
@@ -24,7 +31,10 @@ import { ContractsList } from './pages/contracts/ContractsList'
 import { EmployeesList } from './pages/employees/EmployeesList'
 import { PayslipList } from './pages/payslip/PayslipList'
 import { AdminUsers } from './pages/admin/AdminUsers'
+import { AdminUserForm } from './pages/admin/AdminUserForm'
 import { FormBuilder } from './pages/admin/FormBuilder'
+import { FormFieldList } from './pages/admin/FormFieldList'
+import { FormFieldEdit } from './pages/admin/FormFieldEdit'
 import { WorkflowEditor } from './pages/admin/WorkflowEditor'
 import { EmailSettings } from './pages/admin/EmailSettings'
 import { EmailLogs } from './pages/admin/EmailLogs'
@@ -75,9 +85,40 @@ export default function App() {
           <Login />
         </PublicRoute>
       } />
-      {/* Public submission forms — the Django views allow anonymous access */}
-      <Route path="/transport/create" element={<TransportCreate />} />
-      <Route path="/meetspace/create" element={<MeetSpaceBooking />} />
+      {/* Public pages — all four extend base_public.html in main, so they get
+          the white top-bar shell rather than the signed-in sidebar layout. */}
+      <Route
+        path="/transport/create"
+        element={
+          <PublicLayout>
+            <TransportCreate />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/transport/track"
+        element={
+          <PublicLayout>
+            <TransportTrack />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/meetspace/bookings/new"
+        element={
+          <PublicLayout>
+            <MeetSpaceBooking />
+          </PublicLayout>
+        }
+      />
+      <Route
+        path="/meetspace/track"
+        element={
+          <PublicLayout>
+            <MeetSpaceTrack />
+          </PublicLayout>
+        }
+      />
 
       {/* Protected routes with layout */}
       <Route element={
@@ -102,12 +143,20 @@ export default function App() {
             <TransportReport />
           </ProtectedRoute>
         } />
-        <Route path="/transport/track" element={<TransportTrack />} />
         <Route path="/transport/:id" element={<TransportDetail />} />
 
-        {/* MeetSpace */}
-        <Route path="/meetspace" element={<MeetSpaceList />} />
-        <Route path="/meetspace/:id" element={<MeetSpaceDetail />} />
+        {/* MeetSpace — main's `meetspace:dashboard` is mounted at `''`, so
+            `/meetspace` is the dashboard; bookings live under `bookings/`
+            exactly as meetspace/urls.py lays them out. Static segments are
+            declared before `bookings/:id`. */}
+        <Route path="/meetspace" element={<MeetSpaceDashboard />} />
+        <Route path="/meetspace/bookings" element={<MeetSpaceList />} />
+        <Route path="/meetspace/bookings/:id" element={<MeetSpaceDetail />} />
+        <Route path="/meetspace/availability" element={<RoomAvailability />} />
+        <Route path="/meetspace/rooms" element={<RoomList />} />
+        <Route path="/meetspace/rooms/new" element={<RoomForm />} />
+        <Route path="/meetspace/rooms/:roomId/edit" element={<RoomForm />} />
+        <Route path="/meetspace/announcements/new" element={<AnnouncementForm />} />
 
         {/* ICT */}
         <Route path="/ict" element={<ICTList />} />
@@ -130,9 +179,34 @@ export default function App() {
             <AdminUsers />
           </ProtectedRoute>
         } />
+        <Route path="/admin/users/create" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminUserForm />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/users/:userId/edit" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminUserForm />
+          </ProtectedRoute>
+        } />
         <Route path="/admin/form-builder" element={
           <ProtectedRoute allowedRoles={['admin', 'transport_admin']}>
             <FormBuilder />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/form-builder/fields" element={
+          <ProtectedRoute allowedRoles={['admin', 'transport_admin']}>
+            <FormFieldList />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/form-builder/fields/new" element={
+          <ProtectedRoute allowedRoles={['admin', 'transport_admin']}>
+            <FormFieldEdit />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/form-builder/fields/:fieldId/edit" element={
+          <ProtectedRoute allowedRoles={['admin', 'transport_admin']}>
+            <FormFieldEdit />
           </ProtectedRoute>
         } />
         <Route path="/admin/workflow-editor" element={

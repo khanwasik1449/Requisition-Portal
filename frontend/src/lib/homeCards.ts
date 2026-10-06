@@ -80,7 +80,7 @@ export const homeCards: HomeCard[] = [
     key: 'meetspace',
     title: 'Meeting Room Booking',
     description: 'Book a meeting room for your team. Check availability and request a slot.',
-    to: '/meetspace/create',
+    to: '/meetspace/bookings/new',
     icon: 'bi-door-open',
     bg: '#E0E7FF',
     fg: '#4338CA',
@@ -100,6 +100,21 @@ export const homeCards: HomeCard[] = [
     linkText: 'Track now',
     linkIcon: 'bi-arrow-right',
     module: 'transport',
+  },
+  // public_home.html renders this card too, right after Track Transport; it was
+  // never carried over, so enabling the meetspace module would have left the
+  // landing page with one fewer card than main.
+  {
+    key: 'track_meetspace',
+    title: 'Track Meeting Room Booking',
+    description: 'Check your meeting room booking status using your email address.',
+    to: '/meetspace/track',
+    icon: 'bi-search',
+    bg: '#DBEAFE',
+    fg: '#2563EB',
+    linkText: 'Track now',
+    linkIcon: 'bi-arrow-right',
+    module: 'meetspace',
   },
 ]
 

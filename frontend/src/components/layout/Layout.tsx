@@ -138,16 +138,27 @@ export function Layout() {
     pageSubtitle = 'Enterprise Resource Management'
   } else if (path.startsWith('/transport')) {
     pageTitle = 'Transport Requisitions'
-    pageSubtitle = 'Vehicle transport and trip requests'
   } else if (path.startsWith('/ict')) {
     pageTitle = 'ICT Requisitions'
-    pageSubtitle = 'IT equipment and software requests'
   } else if (path.startsWith('/internal')) {
     pageTitle = 'Internal Requisitions'
-    pageSubtitle = 'Office supplies and resource requests'
-  } else if (path.startsWith('/meetspace')) {
+  } else if (path === '/meetspace') {
     pageTitle = 'MeetSpace'
-    pageSubtitle = 'Meeting room bookings'
+  } else if (path === '/meetspace/bookings') {
+    pageTitle = 'Bookings — MeetSpace'
+  } else if (path === '/meetspace/availability') {
+    pageTitle = 'Find a Room — MeetSpace'
+  } else if (path === '/meetspace/rooms/new') {
+    pageTitle = 'Add Room — MeetSpace'
+  } else if (/^\/meetspace\/rooms\/\d+\/edit$/.test(path)) {
+    pageTitle = `Edit Room — MeetSpace`
+  } else if (path === '/meetspace/rooms') {
+    pageTitle = 'Rooms — MeetSpace'
+  } else if (path === '/meetspace/announcements/new') {
+    pageTitle = 'Post Announcement — MeetSpace'
+  } else if (/^\/meetspace\/bookings\/\d+$/.test(path)) {
+    // booking_detail.html: "Booking #12 — MeetSpace"
+    pageTitle = `Booking #${path.split('/').pop()} — MeetSpace`
   } else if (path.startsWith('/contracts')) {
     pageTitle = 'Contracts'
     pageSubtitle = 'Contract management'
@@ -159,7 +170,6 @@ export function Layout() {
     pageSubtitle = 'Payslip management'
   } else if (path.startsWith('/admin/users')) {
     pageTitle = 'User Management'
-    pageSubtitle = 'Manage users and roles'
   } else if (path.startsWith('/admin/email-settings')) {
     pageTitle = 'Email Configurations'
     pageSubtitle = 'Enterprise Resource Management'

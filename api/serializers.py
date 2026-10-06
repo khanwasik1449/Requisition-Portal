@@ -1,3 +1,6 @@
+from datetime import date, datetime
+
+from django.db.models import Q
 from rest_framework import serializers
 from accounts.models import User
 from transport_requisition.models import TransportRequisition, Vehicle, Driver
@@ -33,32 +36,56 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
-    password_confirm = serializers.CharField(write_only=True)
+    # accounts/user_form.html has no confirmation box -- it only ever asks once.
+    # Optional (rather than dropped) so the registration flow, which does ask
+    # twice, keeps validating the pair it sends.
+    password_confirm = serializers.CharField(write_only=True, required=False)
+    # The form's "Active (can log in)" tick defaults to on for a new user and
+    # is submitted with every create, which this serializer did not accept.
+    is_active = serializers.BooleanField(required=False, default=True)
 
     class Meta:
         model = User
+        # `id` mirrors what every other create in this API returns, so the
+        # caller can address the row it just made.
         fields = [
-            'username', 'email', 'first_name', 'last_name', 'password',
-            'password_confirm', 'role', 'phone',
+            'id', 'username', 'email', 'first_name', 'last_name', 'password',
+            'password_confirm', 'role', 'phone', 'is_active',
         ]
 
     def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
+        confirm = attrs.get('password_confirm')
+        if confirm is not None and confirm != attrs['password']:
             raise serializers.ValidationError({'password_confirm': 'Passwords do not match.'})
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password_confirm')
+        validated_data.pop('password_confirm', None)
         user = User.objects.create_user(**validated_data)
         return user
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    # user_form.html lets an admin reset a password from the edit screen
+    # ("Leave blank to keep current"), which nothing here supported before.
+    password = serializers.CharField(
+        write_only=True, required=False, allow_blank=True,
+        help_text='Leave blank to keep the current password.')
+
     class Meta:
         model = User
         fields = [
             'first_name', 'last_name', 'email', 'role', 'phone', 'is_active',
+            'password',
         ]
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        instance = super().update(instance, validated_data)
+        if password:
+            instance.set_password(password)
+            instance.save(update_fields=['password'])
+        return instance
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -266,23 +293,85 @@ class TransportRequisitionActionSerializer(serializers.Serializer):
 
 # MeetSpace Serializers
 class RoomSerializer(serializers.ModelSerializer):
+    # room_list.html prints `room.booking_count`, annotated in
+    # RoomViewSet.get_queryset. It is not a model field, so it has to be
+    # declared here for `Meta.fields` to carry it through.
+    booking_count = serializers.IntegerField(read_only=True, default=0)
+    # meetspace.views.room_create/room_edit check the number case-insensitively
+    # and report their own sentence, so DRF's case-sensitive UniqueValidator
+    # (attached automatically for `unique=True`) is replaced by validate() below.
+    room_number = serializers.CharField(max_length=20, allow_blank=True, validators=[])
+    floor = serializers.CharField(max_length=50, allow_blank=True)
+    # Deliberately plain IntegerField: PositiveIntegerField would reject 0 and
+    # negatives with DRF's own wording before this serializer could answer with
+    # the message the template shows.
+    min_occupancy = serializers.IntegerField()
+    max_occupancy = serializers.IntegerField()
+
     class Meta:
         model = Room
-        fields = '__all__'
+        fields = [
+            'id', 'room_number', 'floor', 'min_occupancy', 'max_occupancy',
+            'is_active', 'created_at', 'updated_at', 'booking_count',
+        ]
+
+    def validate(self, attrs):
+        """The checks meetspace.views.room_create / room_edit do by hand.
+
+        main reports these as flash messages rather than field errors, so they
+        arrive as ``non_field_errors`` here -- which is where the React form
+        shows them.
+        """
+        instance = self.instance
+        number = attrs.get('room_number', instance.room_number if instance else '')
+        floor = attrs.get('floor', instance.floor if instance else '')
+        min_occ = attrs.get('min_occupancy', instance.min_occupancy if instance else 1)
+        max_occ = attrs.get('max_occupancy', instance.max_occupancy if instance else 10)
+
+        if not number or not floor:
+            raise serializers.ValidationError('Room number and floor are required.')
+        if min_occ < 1 or max_occ < min_occ:
+            raise serializers.ValidationError(
+                'Maximum occupancy must be at least the minimum.')
+
+        clash = Room.objects.filter(room_number__iexact=number.strip())
+        if instance:
+            clash = clash.exclude(pk=instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError(f'Room {number} already exists.')
+
+        attrs['room_number'] = number.strip()
+        attrs['floor'] = floor.strip()
+        attrs['min_occupancy'] = min_occ
+        attrs['max_occupancy'] = max_occ
+        return attrs
 
 
 class BookingListSerializer(serializers.ModelSerializer):
-    room_name = serializers.CharField(source='room.name', read_only=True)
+    # booking_list.html renders `b.room.room_number`. `Room` has no `name`, so
+    # the earlier `source='room.name'` raised AttributeError on every row and
+    # DRF dropped the field (read-only fields are skipped when their attribute
+    # is missing) -- which left the React list's Room column permanently blank.
+    room_number = serializers.CharField(source='room.room_number', read_only=True)
+    room_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    # `user` is null for public submissions, where get_full_name() cannot be
+    # reached; the template just prints nothing in that case.
+    user_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = [
-            'id', 'room', 'room_name', 'user', 'user_name', 'email_address',
-            'meeting_title', 'start_time', 'end_time', 'status', 'status_display',
-            'created_at', 'updated_at',
+            'id', 'room', 'room_number', 'room_name', 'user', 'user_name',
+            'email_address', 'meeting_title', 'date', 'start_time', 'end_time',
+            'status', 'status_display', 'created_at', 'updated_at',
         ]
+
+    def get_room_name(self, obj):
+        return str(obj.room) if obj.room_id else ''
+
+    def get_user_name(self, obj):
+        return obj.user.get_full_name() if obj.user_id else ''
 
 
 class BookingDetailSerializer(serializers.ModelSerializer):
@@ -306,17 +395,118 @@ class BookingDetailSerializer(serializers.ModelSerializer):
 
 
 class BookingCreateSerializer(serializers.ModelSerializer):
+    """meetspace.views.booking_create, check for check.
+
+    main validates by hand and flashes *every* message it finds, so validate()
+    collects the same sentences in the same order instead of letting DRF stop at
+    the first bad field. The React form renders them together, which is what the
+    template's `{% for e in errors %}` loop does.
+
+    The date/time fields stay CharFields so a malformed value produces main's
+    "Enter a valid date and time range." rather than DRF's format sentence.
+    """
+    # source='room_id' so the *response* reads the raw id. Without it DRF would
+    # resolve instance.room into a Room object and hand it to IntegerField, which
+    # dies on int(Room) the moment a booking comes back.
+    room = serializers.IntegerField(source='room_id', allow_null=True, required=False)
+    meeting_title = serializers.CharField(max_length=300, allow_blank=True)
+    email_address = serializers.EmailField(allow_blank=True)
+    # IntegerField rather than CharField so the response keeps the numeric type
+    # the rest of the app reads; `0` passes the field itself, and validate()
+    # below is what turns it into main's "at least 1" sentence.
+    number_of_participants = serializers.IntegerField(allow_null=True, required=False)
+    requirements = serializers.CharField(allow_blank=True, required=False)
+    date = serializers.CharField(allow_blank=True)
+    start_time = serializers.CharField(allow_blank=True)
+    end_time = serializers.CharField(allow_blank=True)
+
     class Meta:
         model = Booking
         fields = [
-            'room', 'meeting_title', 'requirements', 'start_time', 'end_time',
+            # `date` was missing here even though booking_form.html collects it
+            # and MeetSpaceBooking.tsx posts it -- DRF discards payload keys that
+            # are not in `fields`, so every booking INSERT went out without a
+            # NOT NULL column and came back 500.
+            'id', 'room', 'meeting_title', 'requirements', 'date',
+            'start_time', 'end_time',
             'email_address', 'number_of_participants',
         ]
+        # AutoField is read-only by default; listed here only so the client can
+        # follow the new booking to its detail page.
+
+    def validate(self, attrs):
+        errors = []
+
+        title = (attrs.get('meeting_title') or '').strip()
+        email = (attrs.get('email_address') or '').strip()
+        if not title:
+            errors.append('Meeting title is required.')
+        if not email:
+            # An unparseable address was already answered by EmailField with
+            # main's own "Enter a valid email address."
+            errors.append('Email address is required.')
+
+        room_id = attrs.get('room_id')
+        room = Room.objects.filter(pk=room_id, is_active=True).first() if room_id else None
+        if room is None:
+            errors.append('Choose an available room.')
+
+        try:
+            participants = int(attrs.get('number_of_participants') or 0)
+        except (TypeError, ValueError):
+            participants = 0
+        if participants < 1:
+            errors.append('Number of participants must be at least 1.')
+
+        try:
+            booking_date = datetime.strptime(attrs.get('date') or '', '%Y-%m-%d').date()
+            start = datetime.strptime(attrs.get('start_time') or '', '%H:%M').time()
+            end = datetime.strptime(attrs.get('end_time') or '', '%H:%M').time()
+        except (TypeError, ValueError):
+            errors.append('Enter a valid date and time range.')
+            booking_date = start = end = None
+
+        if booking_date and booking_date < date.today():
+            errors.append('The booking date cannot be in the past.')
+        if start and end and end <= start:
+            errors.append('End time must be after start time.')
+
+        if room and participants:
+            if participants < room.min_occupancy or participants > room.max_occupancy:
+                errors.append(
+                    f'Room {room.room_number} supports '
+                    f'{room.min_occupancy}–{room.max_occupancy} participants.'
+                )
+
+        if not errors and room and booking_date and start and end:
+            conflict = Booking.objects.filter(
+                room=room, date=booking_date, status=Booking.Status.APPROVED,
+            ).filter(Q(start_time__lt=end) & Q(end_time__gt=start)).exists()
+            if conflict:
+                errors.append('This room is already booked for the selected time slot.')
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        # `room_id` is left as the plain id: Booking(**attrs) takes it directly,
+        # and validate() has already resolved it to an is_active Room above.
+        attrs['meeting_title'] = title
+        attrs['email_address'] = email
+        attrs['date'] = booking_date
+        attrs['start_time'] = start
+        attrs['end_time'] = end
+        attrs['number_of_participants'] = participants
+        attrs['requirements'] = (attrs.get('requirements') or '').strip()
+        return attrs
 
     def create(self, validated_data):
-        if self.context['request'].user.is_authenticated:
-            validated_data['user'] = self.context['request'].user
-            validated_data['email_address'] = self.context['request'].user.email
+        request = self.context.get('request')
+        # main records the address the *applicant* typed so the public track page
+        # and the notification reach them, and only tags the row with the
+        # signed-in account (or null when anonymous). It never substitutes the
+        # account's own address for the one on the form.
+        if request is not None and request.user.is_authenticated:
+            validated_data['user'] = request.user
         return super().create(validated_data)
 
 
@@ -333,11 +523,57 @@ class BookingActionSerializer(serializers.Serializer):
     alternative_index = serializers.IntegerField(required=False, allow_null=True)
 
 
+class BookingTrackSerializer(serializers.ModelSerializer):
+    """Exactly the rows meetspace/track.html renders.
+
+    Deliberately narrower than BookingDetailSerializer: the lookup is public and
+    keyed only on an email address, so the requester record the template never
+    shows is not handed back to an anonymous caller.
+    """
+    room = RoomSerializer(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = [
+            'id', 'meeting_title', 'status', 'status_display', 'date',
+            'start_time', 'end_time', 'number_of_participants',
+            'requirements', 'cancellation_reason', 'room',
+        ]
+
+
 class AnnouncementSerializer(serializers.ModelSerializer):
+    # dashboard.html prints `a.created_by.get_full_name`, which a bare
+    # `fields = '__all__'` would only give back as a user id.
+    created_by_name = serializers.SerializerMethodField()
+    # Deferred to validate() so an empty post answers with main's sentence
+    # rather than DRF's "This field may not be blank."
+    message = serializers.CharField(allow_blank=True, required=False)
+
     class Meta:
         model = Announcement
-        fields = '__all__'
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+        # `Announcement` has no `updated_at` -- only `created_at`.
+        fields = [
+            'id', 'message', 'attachment', 'created_by', 'created_by_name',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_by', 'created_by_name', 'created_at']
+
+    def get_created_by_name(self, obj):
+        if not obj.created_by_id:
+            return ''
+        return obj.created_by.get_full_name() or obj.created_by.username
+
+    def validate(self, attrs):
+        """announcement_create's "text, attachment, or both" rule, verbatim."""
+        message = attrs.get('message', self.instance.message if self.instance else '')
+        attachment = attrs.get(
+            'attachment', self.instance.attachment if self.instance else None)
+        if not (message or '').strip() and not attachment:
+            raise serializers.ValidationError(
+                'Provide announcement text, an attachment, or both.')
+        attrs['message'] = (message or '').strip()
+        return attrs
 
 
 # ICT Requisition Serializers
@@ -530,10 +766,48 @@ class ModuleSerializer(serializers.ModelSerializer):
 class FormFieldSerializer(serializers.ModelSerializer):
     field_type_display = serializers.CharField(
         source='get_field_type_display', read_only=True)
+    # Override DRF's SlugField: the admin form normalises `key` itself (spaces
+    # and hyphens become underscores, then the alnum check runs). Left alone,
+    # the slug validator fires first and would reject "Cost Centre" before
+    # clean_key ever saw it -- the API would refuse a field the template saves.
+    key = serializers.CharField(max_length=60)
 
     class Meta:
         model = FormField
         fields = '__all__'
+
+    def validate(self, attrs):
+        """Validate through portal_config's own admin form.
+
+        `portal_config.views.field_edit` normalises `key` and refuses an
+        `is_system` tick for a key the requisition model has no column for.
+        Running that exact form here means the API can never accept a field the
+        template would have rejected -- one source of truth, no drift.
+        """
+        from portal_config.views import _field_form
+
+        instance = self.instance
+        if instance is None:
+            module = attrs.get('module')
+            if module is None:
+                return attrs
+            # Anchor a brand-new field on its module so `_field_form`'s
+            # `self.instance.module_id` check can run.
+            instance = FormField(module=module)
+
+        # Probe unbound to learn the form's field names, then bind only those.
+        probe = _field_form(None, instance)
+        data = {}
+        for name in probe.fields:
+            data[name] = attrs[name] if name in attrs else getattr(instance, name, None)
+
+        form = _field_form(data, instance)
+        if not form.is_valid():
+            raise serializers.ValidationError(dict(form.errors))
+
+        # `key` came back normalised -- carry it into validated_data.
+        attrs['key'] = form.cleaned_data['key']
+        return attrs
 
 
 class WorkflowStageSerializer(serializers.ModelSerializer):

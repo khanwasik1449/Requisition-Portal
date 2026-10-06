@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 
 // Employee has no FK to User or Contract -- it is keyed by PIN, and the
 // contract history counts are computed server-side against that PIN.
@@ -29,8 +29,7 @@ export function EmployeesList() {
   const { data: employees, isLoading, isError } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
-      const response = await api.get<{ results: Employee[] }>('/employees/')
-      return response.data
+      return getAllResults<Employee>('/employees/')
     },
   })
 

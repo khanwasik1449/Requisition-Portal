@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 import { useAuth } from '@/auth/hooks'
 
 interface Module {
@@ -44,31 +45,27 @@ export function FormBuilder() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const isSuper = user?.role === 'admin'
-  const [expanded, setExpanded] = useState<number | null>(null)
   // Unsaved switch positions, keyed by module id.
   const [drafts, setDrafts] = useState<Record<number, { enabled: boolean; visible: boolean }>>({})
 
   const { data: modules, isLoading, isError } = useQuery({
     queryKey: ['modules'],
     queryFn: async () => {
-      const response = await api.get<{ results: Module[] }>('/modules/')
-      return response.data
+      return getAllResults<Module>('/modules/')
     },
   })
 
   const { data: fields } = useQuery({
     queryKey: ['formFields'],
     queryFn: async () => {
-      const response = await api.get<{ results: FormField[] }>('/form-fields/')
-      return response.data
+      return getAllResults<FormField>('/form-fields/')
     },
   })
 
   const { data: stages } = useQuery({
     queryKey: ['workflowStages'],
     queryFn: async () => {
-      const response = await api.get<{ results: WorkflowStage[] }>('/workflow-stages/')
-      return response.data
+      return getAllResults<WorkflowStage>('/workflow-stages/')
     },
   })
 
@@ -167,12 +164,12 @@ export function FormBuilder() {
                     ) : null}
                   </div>
                   <div className="d-flex gap-2">
-                    <button
+                    <Link
+                      to={`/admin/form-builder/fields?module=${m.key}`}
                       className="btn btn-sm btn-outline-primary"
-                      onClick={() => setExpanded(expanded === m.id ? null : m.id)}
                     >
                       <i className="bi bi-list-ul me-1"></i> Fields ({moduleFields.length})
-                    </button>
+                    </Link>
                     <Link
                       to={`/admin/workflow-editor?module=${m.key}`}
                       className="btn btn-sm btn-outline-secondary"
@@ -207,25 +204,6 @@ export function FormBuilder() {
                     </div>
                   ) : (
                     <span className="text-muted small">No workflow configured yet.</span>
-                  )}
-
-                  {expanded === m.id && (
-                    <div className="border rounded p-2 mt-3" style={{ maxHeight: 200, overflow: 'auto' }}>
-                      {moduleFields.length === 0 ? (
-                        <span className="text-muted small">This module has no form fields yet.</span>
-                      ) : (
-                        moduleFields.map((f) => (
-                          <div key={f.id} className="d-flex align-items-center gap-2 small py-1">
-                            <code className="text-muted">{f.key}</code>
-                            <span>{f.label}</span>
-                            <span className="badge bg-light text-dark border ms-auto">
-                              {f.field_type_display}
-                            </span>
-                            {f.required && <span className="badge bg-warning text-dark">required</span>}
-                          </div>
-                        ))
-                      )}
-                    </div>
                   )}
 
                   {isSuper && (

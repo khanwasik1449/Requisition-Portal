@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db.models import Q, Count
 from django.utils import timezone
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 from accounts.models import User
 from transport_requisition.models import TransportRequisition, Vehicle, Driver
@@ -35,7 +35,8 @@ from .serializers import (
     TransportRequisitionActionSerializer, TransportTrackSerializer,
     TransportHistorySerializer, TransportReportSerializer,
     RoomSerializer, BookingListSerializer, BookingDetailSerializer,
-    BookingCreateSerializer, BookingActionSerializer, AnnouncementSerializer,
+    BookingCreateSerializer, BookingActionSerializer, BookingTrackSerializer,
+    AnnouncementSerializer,
     ICTRequisitionListSerializer, ICTRequisitionDetailSerializer,
     ICTRequisitionCreateSerializer, ICTRequisitionActionSerializer,
     InternalRequisitionListSerializer, InternalRequisitionDetailSerializer,
@@ -270,9 +271,32 @@ class TransportRequisitionViewSet(viewsets.ModelViewSet):
 
 # MeetSpace ViewSets
 class RoomViewSet(viewsets.ModelViewSet):
-    queryset = Room.objects.all()
     serializer_class = RoomSerializer
-    permission_classes = [IsHRAdmin | IsAdminUser]
+
+    def get_queryset(self):
+        """room_list.html prints `room.booking_count` -- approved bookings only."""
+        # order_by re-states Room.Meta.ordering: `annotate()` drops the model's
+        # default ordering, and DRF paginates this list.
+        rooms = Room.objects.annotate(
+            booking_count=Count('bookings', filter=Q(bookings__status=Booking.Status.APPROVED)),
+        ).order_by('room_number')
+        if not self.request.user.is_authenticated:
+            # booking_create is a public page and offers exactly
+            # `Room.objects.filter(is_active=True)` in its dropdown, so an
+            # anonymous caller sees no retired rooms either.
+            return rooms.filter(is_active=True)
+        return rooms
+
+    def get_permissions(self):
+        # main gates only the Add/Edit/Retire buttons on _is_hr_admin (and
+        # room_create/edit/toggle re-check it per view); room_list itself is
+        # just @login_required. Reads therefore stay open -- and open to
+        # anonymous callers too, because the public booking form builds its
+        # room picker from this same list without a session.
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        # Parentheses matter: `[A | B]()` would call the *list*.
+        return [(IsHRAdmin | IsAdminUser)()]
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -280,7 +304,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsRequester]
 
     def get_serializer_class(self):
-        if self.action == 'list':
+        if self.action in ['list', 'my_bookings']:
             return BookingListSerializer
         if self.action == 'create':
             return BookingCreateSerializer
@@ -291,13 +315,56 @@ class BookingViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if user.is_admin() or user.is_hr_admin():
             return qs
-        if user.is_authenticated:
-            return qs.filter(Q(user=user) | Q(email__iexact=user.email))
-        return qs.none()
+        # meetspace.views.booking_list narrows to the requester's own rows and
+        # nothing else -- there is no email fallback here; that is what the
+        # public /track/ page is for.
+        if not user.is_authenticated:
+            return qs.none()
+        qs = qs.filter(user=user)
+        # booking_list.html submits `?status=` as a GET form; only the list
+        # endpoint reads it, exactly as the template only applies it there.
+        if self.action == 'list':
+            status = self.request.query_params.get('status')
+            if status:
+                qs = qs.filter(status=status)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        """Answer with the saved booking, not the create input.
+
+        meetspace.views.booking_create renders booking_submitted.html with the
+        instance it just saved -- same request, same URL, no round trip. The
+        React form has to reproduce that panel too, and the caller is normally
+        *anonymous*, so it has no session to read the booking back with (a
+        follow-up GET /meetspace/{id}/ would 401 and bounce it to /login).
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        detail = BookingDetailSerializer(booking, context=self.get_serializer_context())
+        return Response(detail.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer):
+        """The "New Booking Request — MeetSpace" mail main sends at views.py:285."""
+        from meetspace.views import _hr_admin_emails, _notify
+
+        booking = serializer.save()
+        _notify(
+            'New Booking Request — MeetSpace',
+            f"New booking request from {booking.email_address}.\n"
+            f"Meeting: {booking.meeting_title}\nRoom: {booking.room.room_number}\n"
+            f"Date: {booking.date}\nTime: {booking.start_time}–{booking.end_time}.",
+            list(_hr_admin_emails()),
+        )
+        return booking
 
     def get_permissions(self):
-        if self.action in ['create']:
-            return [permissions.AllowAny()]  # Public booking
+        if self.action in ['create', 'track']:
+            # `create` is the public booking form, and `track` mirrors
+            # meetspace.views.track_view, which is reached from
+            # base_public.html without signing in.
+            return [permissions.AllowAny()]
         if self.action in ['approve', 'decline', 'suggest_alternative',
                            'cancel', 'accept_alternative',
                            'reject_alternatives', 'actions']:
@@ -383,7 +450,12 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def my_bookings(self, request):
-        qs = self.get_queryset().filter(Q(user=request.user) | Q(email__iexact=request.user.email))
+        # Built from the model rather than get_queryset(): the latter already
+        # narrows to `user=<you>` for non-admins, which would erase the email
+        # half of this action -- public bookings carry no user row. The field is
+        # `Booking.email_address`; the shorter name raised FieldError.
+        qs = Booking.objects.select_related('room', 'user').filter(
+            Q(user=request.user) | Q(email_address__iexact=request.user.email))
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
@@ -408,6 +480,133 @@ class BookingViewSet(viewsets.ModelViewSet):
         ).exists()
 
         return Response({'available': not conflicts})
+
+    @action(detail=False, methods=['get'])
+    def dashboard(self, request):
+        """Mirror meetspace.views.dashboard -- a role-aware overview.
+
+        An HR admin sees every booking plus room totals; anyone else sees only
+        their own, which is what the view's `_is_hr_admin` branch picks between.
+        The stat keys are the template's, since `dashboard.html` loops
+        `stats.items` straight into cards.
+        """
+        today = date.today()
+        bookings = Booking.objects.select_related('room', 'user')
+        is_hr_admin = request.user.is_admin() or request.user.is_hr_admin()
+
+        if is_hr_admin:
+            recent = bookings.order_by('-created_at')[:10]
+            stats = {
+                'total_rooms': Room.objects.filter(is_active=True).count(),
+                'bookings_today': bookings.filter(date=today).count(),
+                'upcoming': bookings.filter(date__gte=today).exclude(
+                    status__in=[Booking.Status.CANCELLED, Booking.Status.REJECTED],
+                ).count(),
+                'pending': bookings.filter(status=Booking.Status.PENDING).count(),
+            }
+        else:
+            mine = bookings.filter(user=request.user)
+            recent = mine.order_by('-created_at')[:10]
+            stats = {
+                'upcoming': mine.filter(date__gte=today).exclude(
+                    status__in=[Booking.Status.CANCELLED, Booking.Status.REJECTED],
+                ).count(),
+                'pending': mine.filter(status=Booking.Status.PENDING).count(),
+                'past': mine.filter(date__lt=today).count(),
+            }
+
+        announcements = Announcement.objects.select_related('created_by')[:10]
+        return Response({
+            'stats': stats,
+            'recent': BookingListSerializer(recent, many=True).data,
+            'announcements': AnnouncementSerializer(announcements, many=True).data,
+            'is_hr_admin': is_hr_admin,
+        })
+
+    @action(detail=False, methods=['get'])
+    def track(self, request):
+        """Mirror meetspace.views.track_view -- public lookup by email address.
+
+        Bookings are matched on `email_address` rather than an id, so this
+        cannot be used to enumerate anybody else's reservations. The payload is
+        BookingTrackSerializer, which leaves the requester record out because
+        track.html never renders it.
+        """
+        email = (request.query_params.get('email') or '').strip()
+        if not email:
+            # GET with no search yet: main just re-renders the empty form.
+            return Response({'searched': False, 'email': '', 'bookings': []})
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'error': 'Enter a valid email address.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        bookings = Booking.objects.filter(
+            email_address__iexact=email,
+        ).select_related('room', 'user')
+        return Response({
+            'searched': True,
+            'email': email,
+            'bookings': BookingTrackSerializer(bookings, many=True).data,
+        })
+
+    @action(detail=False, methods=['get'], url_path='room-search')
+    def room_search(self, request):
+        """Mirror meetspace.views.availability: free rooms for a requested slot.
+
+        The path is `room-search` rather than `availability` only because
+        `availability` is already this viewset's slot-conflict check. A missing
+        date means "not searched yet" and returns the empty form, exactly as
+        main's GET does; a present-but-malformed date gets main's own sentence.
+        """
+        if not request.query_params.get('date'):
+            return Response({'searched': False, 'results': [], 'suggestions': []})
+
+        try:
+            search_date = datetime.strptime(request.query_params.get('date', ''), '%Y-%m-%d').date()
+            start = datetime.strptime(request.query_params.get('start_time', ''), '%H:%M').time()
+            end = datetime.strptime(request.query_params.get('end_time', ''), '%H:%M').time()
+            participants = int(request.query_params.get('number_of_participants') or 0)
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'Enter a valid date, time range and participant count.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        suitable = Room.objects.filter(
+            is_active=True,
+            min_occupancy__lte=participants,
+            max_occupancy__gte=participants,
+        )
+        taken = Booking.objects.filter(
+            date=search_date, status=Booking.Status.APPROVED,
+        ).filter(
+            Q(start_time__lt=end) & Q(end_time__gt=start)
+        ).values_list('room_id', flat=True)
+        results = suitable.exclude(id__in=taken)
+
+        if results.exists():
+            suggestions = []
+        else:
+            # main's own helper, imported rather than re-implemented so the
+            # 30-minute / three-day scan cannot drift from the template's.
+            from meetspace.views import _time_suggestions
+            suggestions = _time_suggestions(search_date, start, end, participants)
+
+        return Response({
+            'searched': True,
+            'results': RoomSerializer(results, many=True).data,
+            'suggestions': [
+                {
+                    'room': RoomSerializer(s['room']).data,
+                    'date': s['date'],
+                    'start_time': s['start_time'],
+                    'end_time': s['end_time'],
+                }
+                for s in suggestions
+            ],
+        })
 
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
@@ -742,7 +941,7 @@ def dashboard_stats(request):
                 'transport': TransportRequisition.objects.filter(user=user).count(),
                 'ict': ICTRequisition.objects.filter(user=user).count(),
                 'internal': InternalRequisition.objects.filter(user=user).count(),
-                'bookings': Booking.objects.filter(Q(user=user) | Q(email__iexact=user.email)).count(),
+                'bookings': Booking.objects.filter(user=user).count(),
             }
         }
 
@@ -832,12 +1031,15 @@ def portal_choices(request):
     """
     from accounts.models import User
     from notifications.models import Department
-    from portal_config.models import StageAction
+    from portal_config.models import FieldType, StageAction
 
     return Response({
         'roles': [{'value': v, 'label': l} for v, l in User.Role.choices],
         'stage_actions': [{'value': a.value, 'label': a.label} for a in StageAction],
         'departments': [{'value': v, 'label': l} for v, l in Department.choices],
+        # field_list.html renders these straight off `FieldType.choices`, so the
+        # Form Builder needs them from the same source rather than a copy.
+        'field_types': [{'value': v, 'label': l} for v, l in FieldType.choices],
     })
 
 

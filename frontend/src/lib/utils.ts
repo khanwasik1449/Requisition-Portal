@@ -33,6 +33,48 @@ export function formatDateDMY(value?: string | Date | null): string {
 }
 
 /**
+ * Django's `date:"M d"` filter — "Oct 09".
+ *
+ * dashboard.html's recent-bookings column uses this shorter shape rather than
+ * the `M d, Y` form, so it needs its own helper.
+ */
+export function formatDateMD(value?: string | Date | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SERVER_TIME_ZONE,
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  }).formatToParts(d)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('month').slice(0, 3)} ${get('day')}`
+}
+
+/**
+ * Django's `|title` filter — Python's `str.title()`, underscore and all.
+ *
+ * dashboard.html prints each stats key through it, so `total_rooms` comes out
+ * as `Total_Rooms`: a non-letter (the `_`) starts a new "word". A plain
+ * capitalize would render `Total_rooms` and show.
+ */
+export function djangoTitle(value: string): string {
+  let out = ''
+  let atWordStart = true
+  for (const ch of value) {
+    if (/[A-Za-z]/.test(ch)) {
+      out += atWordStart ? ch.toUpperCase() : ch.toLowerCase()
+      atWordStart = false
+    } else {
+      out += ch
+      atWordStart = true
+    }
+  }
+  return out
+}
+
+/**
  * Django's `date:"d M Y"` filter — "05 Oct 2026".
  *
  * my_requisitions.html is the only template in main that uses this day-first
@@ -123,6 +165,26 @@ export function formatStamp(value?: string | Date | null): string {
   const hour = get('hour') === '24' ? '00' : get('hour')
   return `${get('month').slice(0, 3)} ${get('day')}, ` +
          `${get('year')} ${hour}:${get('minute')}`
+}
+
+/**
+ * Flattens a DRF error body into the lines main would have flashed.
+ *
+ * main collects its messages into a list and shows them one per alert; DRF
+ * reports them per field (`{"floor": ["..."]}`) or grouped under
+ * `non_field_errors`, so both shapes have to be read to reproduce the same
+ * set of sentences.
+ */
+export function apiErrorMessages(data: unknown, fallback: string): string[] {
+  const out: string[] = []
+  const walk = (value: unknown) => {
+    if (value == null) return
+    if (Array.isArray(value)) return value.forEach(walk)
+    if (typeof value === 'object') return Object.values(value).forEach(walk)
+    out.push(String(value))
+  }
+  if (data && typeof data === 'object') walk(data)
+  return out.length ? out : [fallback]
 }
 
 export function getStatusColor(status: string): string {

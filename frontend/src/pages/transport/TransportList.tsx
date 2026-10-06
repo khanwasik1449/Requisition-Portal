@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 import { formatDateDMY, formatTimeHM } from '@/lib/utils'
-import { TransportRequisition, PaginatedResponse } from '@/types'
+import { TransportRequisition } from '@/types'
 
 function StatusBadge({ status, displayName }: { status: string; displayName?: string }) {
   if (status === 'rejected') {
@@ -33,8 +33,7 @@ export function TransportList() {
   const { data, isLoading } = useQuery({
     queryKey: ['transport'],
     queryFn: async () => {
-      const response = await api.get<PaginatedResponse<TransportRequisition>>('/transport/')
-      return response.data
+      return getAllResults<TransportRequisition>('/transport/')
     },
   })
 

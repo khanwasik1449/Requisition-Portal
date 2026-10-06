@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 import { formatDateDMY } from '@/lib/utils'
 
 interface ICTRequisition {
@@ -46,8 +46,7 @@ export function ICTList() {
   const { data, isLoading } = useQuery({
     queryKey: ['ict'],
     queryFn: async () => {
-      const response = await api.get<{ results: ICTRequisition[] }>('/ict/')
-      return response.data
+      return getAllResults<ICTRequisition>('/ict/')
     },
   })
 

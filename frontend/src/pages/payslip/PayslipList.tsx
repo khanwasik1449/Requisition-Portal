@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 
 // Payslip is a flat row keyed by PIN -- it has no relations at all.
 // `month` and `year` are strings, not numbers.
@@ -25,8 +25,7 @@ export function PayslipList() {
   const { data: payslips, isLoading, isError } = useQuery({
     queryKey: ['payslips'],
     queryFn: async () => {
-      const response = await api.get<{ results: Payslip[] }>('/payslips/')
-      return response.data
+      return getAllResults<Payslip>('/payslips/')
     },
   })
 

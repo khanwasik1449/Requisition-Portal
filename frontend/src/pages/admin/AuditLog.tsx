@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 
 interface AuditLogRow {
   id: number
@@ -41,8 +41,7 @@ export function AuditLog() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['auditLogs'],
     queryFn: async () => {
-      const response = await api.get<{ results: AuditLogRow[] }>('/audit-logs/')
-      return response.data
+      return getAllResults<AuditLogRow>('/audit-logs/')
     },
   })
 

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 
 interface Contract {
   id: number
@@ -42,8 +42,7 @@ export function ContractsList() {
     queryFn: async () => {
       // Paginated DRF response -- the page used to read the envelope itself as
       // an array, which rendered an always-empty table.
-      const response = await api.get<{ results: Contract[] }>('/contracts/')
-      return response.data
+      return getAllResults<Contract>('/contracts/')
     },
   })
 

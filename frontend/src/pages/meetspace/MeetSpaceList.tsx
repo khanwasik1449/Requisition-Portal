@@ -1,63 +1,76 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 import { formatDateDMY, formatTimeHM } from '@/lib/utils'
+import { isHrAdmin, statusBadgeClass, type BookingRow } from '@/lib/meetspace'
+import { useAuth } from '@/auth/hooks'
 
-interface Booking {
-  id: number
-  meeting_title: string
-  room_number?: string
-  date: string
-  start_time: string
-  end_time: string
-  status: string
-  status_display?: string
-}
+// meetspace.views.booking_list passes Booking.Status.choices straight through,
+// so the filter offers all five rather than a hand-typed subset.
+const STATUS_CHOICES: [string, string][] = [
+  ['pending', 'Pending'],
+  ['approved', 'Approved'],
+  ['rejected', 'Rejected'],
+  ['cancelled', 'Cancelled'],
+  ['alternatives', 'Alternatives offered'],
+]
 
 // Exact replica of meetspace/templates/meetspace/booking_list.html
 export function MeetSpaceList() {
+  const { user } = useAuth()
+  const hrAdmin = isHrAdmin(user?.role)
+  const [status, setStatus] = useState('')
+  const [applied, setApplied] = useState('')
+
   const { data, isLoading } = useQuery({
-    queryKey: ['meetspace'],
-    queryFn: async () => {
-      const response = await api.get<{ results: Booking[] }>('/meetspace/')
-      return response.data
-    },
+    queryKey: ['meetspace', applied],
+    queryFn: async () =>
+      getAllResults<BookingRow>('/meetspace/', applied ? { status: applied } : undefined),
   })
 
-  const getStatusBadge = (status: string, display?: string) => {
-    if (status === 'approved') return <span className="badge bg-success">{display || status}</span>
-    if (status === 'pending')
-      return (
-        <span className="badge bg-warning text-dark">{display || status}</span>
-      )
-    if (status === 'rejected' || status === 'cancelled')
-      return <span className="badge bg-danger">{display || status}</span>
-    return <span className="badge bg-info">{display || status}</span>
-  }
+  const bookings = data?.results ?? []
+  // main's `{% empty %}` block spans however many columns the header drew.
+  const colSpan = hrAdmin ? 7 : 6
 
   return (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h2 className="page-title mb-1">Bookings</h2>
-          <p className="text-muted mb-0 small">Your room booking requests</p>
+          <p className="text-muted mb-0 small">
+            {hrAdmin ? 'All room booking requests' : 'Your room booking requests'}
+          </p>
         </div>
-        <Link to="/meetspace/create" className="btn btn-primary">
+        <Link to="/meetspace/bookings/new" className="btn btn-primary">
           <i className="bi bi-plus-lg me-1"></i> New Booking
         </Link>
       </div>
 
       <div className="card">
         <div className="card-body">
-          <form className="row g-2 align-items-end">
+          <form
+            className="row g-2 align-items-end"
+            onSubmit={(e) => {
+              e.preventDefault()
+              setApplied(status)
+            }}
+          >
             <div className="col-md-4">
               <label className="form-label small">Status</label>
-              <select name="status" className="form-select form-select-sm" defaultValue="">
+              <select
+                name="status"
+                className="form-select form-select-sm"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
                 <option value="">All</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="cancelled">Cancelled</option>
+                {STATUS_CHOICES.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="col-md-2">
@@ -72,6 +85,7 @@ export function MeetSpaceList() {
             <thead className="table-light">
               <tr>
                 <th>Meeting</th>
+                {hrAdmin && <th>Requester</th>}
                 <th>Room</th>
                 <th>Date</th>
                 <th>Time</th>
@@ -82,33 +96,38 @@ export function MeetSpaceList() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4">
+                  <td colSpan={colSpan} className="text-center py-4">
                     <div className="spinner-border text-primary" role="status">
                       <span className="visually-hidden">Loading...</span>
                     </div>
                   </td>
                 </tr>
-              ) : data?.results.length === 0 ? (
+              ) : bookings.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4">
+                  <td colSpan={colSpan} className="text-center text-muted py-4">
                     No bookings found.
                   </td>
                 </tr>
               ) : (
-                data?.results.map((b) => (
+                bookings.map((b) => (
                   <tr key={b.id}>
                     <td>
-                      <Link to={`/meetspace/${b.id}`}>{b.meeting_title}</Link>
+                      <Link to={`/meetspace/bookings/${b.id}`}>{b.meeting_title}</Link>
                     </td>
+                    {hrAdmin && <td>{b.user_name || ''}</td>}
                     <td>{b.room_number || '—'}</td>
                     <td>{formatDateDMY(b.date)}</td>
                     <td>
-                      {formatTimeHM(b.start_time)}-{formatTimeHM(b.end_time)}
+                      {formatTimeHM(b.start_time)}–{formatTimeHM(b.end_time)}
                     </td>
-                    <td>{getStatusBadge(b.status, b.status_display)}</td>
+                    <td>
+                      <span className={`badge ${statusBadgeClass(b.status)}`}>
+                        {b.status_display || b.status}
+                      </span>
+                    </td>
                     <td className="text-end">
                       <Link
-                        to={`/meetspace/${b.id}`}
+                        to={`/meetspace/bookings/${b.id}`}
                         className="btn btn-sm btn-outline-secondary"
                       >
                         <i className="bi bi-eye"></i>

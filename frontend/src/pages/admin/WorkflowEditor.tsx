@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/axios'
+import { getAllResults } from '@/lib/paginate'
 
 interface Module {
   id: number
@@ -83,7 +84,7 @@ export function WorkflowEditor() {
 
   const { data: modules } = useQuery({
     queryKey: ['modules'],
-    queryFn: async () => (await api.get<{ results: Module[] }>('/modules/')).data,
+    queryFn: async () => getAllResults<Module>('/modules/'),
   })
 
   const activeModules = useMemo(
@@ -96,13 +97,13 @@ export function WorkflowEditor() {
   const { data: stages, isLoading } = useQuery({
     queryKey: ['workflowStages', moduleKey],
     enabled: !!moduleKey,
-    queryFn: async () => (await api.get<{ results: Stage[] }>('/workflow-stages/')).data,
+    queryFn: async () => getAllResults<Stage>('/workflow-stages/'),
   })
 
   const { data: fields } = useQuery({
     queryKey: ['formFields', moduleKey],
     enabled: !!currentModule,
-    queryFn: async () => (await api.get<{ results: FormField[] }>('/form-fields/')).data,
+    queryFn: async () => getAllResults<FormField>('/form-fields/'),
   })
 
   const { data: choices } = useQuery({
