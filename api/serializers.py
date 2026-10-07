@@ -1018,3 +1018,22 @@ class NotificationEmailLogSerializer(serializers.ModelSerializer):
         model = NotificationEmailLog
         fields = '__all__'
         read_only_fields = ['id', 'created_at']
+
+
+class NotificationTrackSerializer(serializers.Serializer):
+    """The rows ``notifications/track.html`` prints, for any requisition type.
+
+    ICT, Transport and Internal are three separate models, but they expose the
+    same four timestamps and the same rejection reason, so one plain Serializer
+    reads all three the way ``ModelSerializer`` would have -- without having to
+    pick a single concrete model Meta.
+    """
+
+    request_number = serializers.CharField()
+    full_name = serializers.CharField()
+    status = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    first_approved_at = serializers.DateTimeField(allow_null=True)
+    second_approved_at = serializers.DateTimeField(allow_null=True)
+    rejected_at = serializers.DateTimeField(allow_null=True)
+    rejection_reason = serializers.CharField(allow_null=True)

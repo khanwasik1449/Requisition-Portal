@@ -99,6 +99,7 @@ export const endpoints = {
   me: () => '/auth/me/',
   changePassword: () => '/auth/change-password/',
   register: () => '/auth/register/',
+  signup: () => '/auth/signup/',
 
   // Users
   users: () => '/users/',
@@ -177,6 +178,16 @@ export const endpoints = {
   // Notifications
   auditLogs: () => '/audit-logs/',
   notificationEmailLogs: () => '/notification-email-logs/',
+
+  // Tier 3 -- documentation, self-registration and notification deep links
+  documentation: (download?: 'html' | 'pdf') =>
+    download ? `/documentation/?download=${download}` : '/documentation/',
+  notificationAction: (token: string) =>
+    `/notifications/action/${encodeURIComponent(token)}/`,
+  notificationTrack: (reqType: string, id: number) =>
+    `/notifications/track/${reqType}/${id}/`,
+  sendReminder: (reqType: string, id: number) =>
+    `/notifications/send-reminder/${reqType}/${id}/`,
 
   // Dashboard
   dashboardStats: () => '/dashboard/stats/',

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/auth/hooks'
+import { ReminderButton, useReminder } from '@/components/ReminderButton'
 import { getAllResults } from '@/lib/paginate'
 
 interface InternalRequisition {
@@ -46,6 +48,15 @@ export function InternalList() {
       return getAllResults<InternalRequisition>('/internal/')
     },
   })
+  const { user } = useAuth()
+  const { notice, busyId, send } = useReminder()
+
+  // main gates the reminder button on `user.is_admin or user.is_internal_admin`
+  // and on the requisition sitting at one of the two pending stages.
+  const isReminderActor =
+    !!user && (user.role === 'admin' || user.role === 'internal_admin')
+  const canRemind = (status: string) =>
+    isReminderActor && (status === 'pending_first' || status === 'pending_second')
 
   return (
     <>
@@ -60,6 +71,12 @@ export function InternalList() {
           <i className="bi bi-plus-lg me-1"></i> New Request
         </Link>
       </div>
+
+      {notice && (
+        <div className={`alert alert-${notice.level} py-2 small`} role="alert">
+          {notice.text}
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body p-0">
@@ -122,6 +139,14 @@ export function InternalList() {
                           >
                             <i className="bi bi-eye"></i>
                           </Link>
+                          {canRemind(r.status) && (
+                            <ReminderButton
+                              reqType="internal"
+                              id={r.id}
+                              busy={busyId === r.id}
+                              onClick={() => send('internal', r.id)}
+                            />
+                          )}
                         </div>
                       </td>
                     </tr>

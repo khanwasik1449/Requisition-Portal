@@ -47,6 +47,10 @@ import { PayslipList } from './pages/payslip/PayslipList'
 import { PayslipBulkUpload } from './pages/payslip/PayslipBulkUpload'
 import { PayslipRequestForm } from './pages/payslip/PayslipRequestForm'
 import { PayslipRequestsList } from './pages/payslip/PayslipRequestsList'
+import { Documentation } from './pages/Documentation'
+import { Signup } from './pages/Signup'
+import { EmailAction } from './pages/notifications/EmailAction'
+import { Track } from './pages/notifications/Track'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminUserForm } from './pages/admin/AdminUserForm'
 import { FormBuilder } from './pages/admin/FormBuilder'
@@ -289,6 +293,17 @@ export default function App() {
           standalone public document (it extends nothing), so it renders
           outside both shells. */}
       <Route path="/hr/payslip/request" element={<PayslipRequestForm />} />
+
+      {/* Tier 3 — the remaining standalone public pages. None of these
+          templates extends base.html either: documentation.html, signup.html,
+          pending_approval.html, notifications/action_*.html and
+          notifications/track.html are all full documents of their own, so they
+          render outside both shells. /notifications/action/:token is public
+          because main redirects a signed-out visitor to login with ?next=. */}
+      <Route path="/documentation" element={<Documentation />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/notifications/action/:token" element={<EmailAction />} />
+      <Route path="/notifications/track/:reqType/:id" element={<Track />} />
 
       {/* Legacy Tier-1 HR paths, kept resolving to the main-equivalent URLs */}
       <Route path="/contracts" element={<Navigate to="/hr/contracts" replace />} />

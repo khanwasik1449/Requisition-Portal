@@ -1,5 +1,9 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/auth/hooks'
+import { ReminderButton, useReminder } from '@/components/ReminderButton'
+import { api, endpoints } from '@/api/axios'
 import { getAllResults } from '@/lib/paginate'
 import { formatDateDMY, formatTimeHM } from '@/lib/utils'
 import { TransportRequisition } from '@/types'
@@ -28,6 +32,27 @@ function StatusBadge({ status, displayName }: { status: string; displayName?: st
   )
 }
 
+// portal_config.engine.stage_allows, reduced to what the list page needs: the
+// superadmin holds every stage role implicitly, a stage with no pinned role is
+// open to any approver, and everyone else must hold the stage's own role.
+const APPROVER_ROLES = new Set([
+  'supervisor',
+  'grants',
+  'ict_approver',
+  'ict_admin',
+  'transport_admin',
+  'internal_admin',
+  'grants_admin',
+  'admin',
+])
+
+function stageAllows(approverRole: string | null | undefined, role: string) {
+  if (role === 'admin') return true
+  if (!APPROVER_ROLES.has(role)) return false
+  if (!approverRole) return true
+  return approverRole === role
+}
+
 // Exact replica of templates/transport_requisition/list.html
 export function TransportList() {
   const { data, isLoading } = useQuery({
@@ -36,6 +61,39 @@ export function TransportList() {
       return getAllResults<TransportRequisition>('/transport/')
     },
   })
+  const { user } = useAuth()
+  const { notice, busyId, send } = useReminder()
+
+  // main derives `my_stage_keys` from the workflow configuration -- the stages
+  // this user may act on right now, minus the terminal ones -- so a stage added
+  // in the Form Builder makes the button appear with no template change. The
+  // public workflow endpoint serves the same chain.
+  const { data: stages } = useQuery({
+    queryKey: ['workflow', 'transport'],
+    queryFn: async () => {
+      const { data: body } = await api.get(
+        endpoints.publicModuleWorkflow('transport'),
+      )
+      return body as {
+        key: string
+        approver_role: string
+        is_terminal: boolean
+      }[]
+    },
+  })
+
+  const myStageKeys = useMemo(() => {
+    if (!stages || !user) return new Set<string>()
+    return new Set(
+      stages
+        .filter((s) => !s.is_terminal && stageAllows(s.approver_role, user.role))
+        .map((s) => s.key),
+    )
+  }, [stages, user])
+
+  const isReminderActor =
+    !!user && (user.role === 'admin' || user.role === 'transport_admin')
+  const canRemind = (status: string) => isReminderActor && myStageKeys.has(status)
 
   return (
     <>
@@ -48,6 +106,12 @@ export function TransportList() {
           <i className="bi bi-plus-lg me-1"></i> New Request
         </Link>
       </div>
+
+      {notice && (
+        <div className={`alert alert-${notice.level} py-2 small`} role="alert">
+          {notice.text}
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body p-0">
@@ -121,6 +185,14 @@ export function TransportList() {
                           >
                             <i className="bi bi-eye"></i>
                           </Link>
+                          {canRemind(r.status) && (
+                            <ReminderButton
+                              reqType="transport"
+                              id={r.id}
+                              busy={busyId === r.id}
+                              onClick={() => send('transport', r.id)}
+                            />
+                          )}
                         </div>
                       </td>
                     </tr>

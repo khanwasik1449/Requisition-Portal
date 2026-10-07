@@ -16,6 +16,8 @@ from .views import (
     dashboard_stats, public_modules, module_form_fields, module_workflow,
     transport_track, transport_history, transport_report, transport_report_export,
     my_requisitions, portal_choices,
+    signup, documentation, notification_action, notification_track,
+    notification_send_reminder,
 )
 
 router = DefaultRouter()
@@ -69,6 +71,16 @@ urlpatterns = [
     path('transport/history/', transport_history, name='transport-history'),
     path('transport/report/', transport_report, name='transport-report'),
     path('transport/report/export/', transport_report_export, name='transport-report-export'),
+
+    # Tier 3 -- documentation, self-registration and notification deep links.
+    # Registered before the router for the same reason as the block above: a
+    # bare `notifications/<x>/` would otherwise be read as a router lookup.
+    path('auth/signup/', signup, name='signup'),
+    path('documentation/', documentation, name='documentation'),
+    path('notifications/action/<str:token>/', notification_action, name='notification-action'),
+    path('notifications/track/<str:req_type>/<int:pk>/', notification_track, name='notification-track'),
+    path('notifications/send-reminder/<str:req_type>/<int:pk>/',
+         notification_send_reminder, name='notification-send-reminder'),
 
     # Router
     path('', include(router.urls)),

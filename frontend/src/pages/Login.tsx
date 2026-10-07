@@ -1,25 +1,41 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/hooks'
 
 // Exact replica of templates/accounts/login.html
 export function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  // CustomLoginView.form_invalid -- an inactive username gets its own warning
+  // instead of the generic "Invalid username or password."
+  const [inactiveError, setInactiveError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // The Tier-3 email-action page sends signed-out users here as
+  // `/login?next=/notifications/action/<token>`; anything that is not a local
+  // path (open redirect) falls back to the dashboard.
+  const next = searchParams.get('next')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setInactiveError('')
     setIsLoading(true)
     try {
       await login(username, password)
-      navigate('/dashboard')
-    } catch {
-      setError('Invalid username or password.')
+      navigate(next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard')
+    } catch (err) {
+      const inactive = (err as { response?: { data?: { inactive?: string[] } } })?.response?.data
+        ?.inactive?.[0]
+      if (inactive) {
+        setInactiveError(inactive)
+      } else {
+        setError('Invalid username or password.')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -70,6 +86,12 @@ export function Login() {
         {error && (
           <div className="alert alert-danger py-2 small">
             <i className="bi bi-exclamation-circle me-1"></i> {error}
+          </div>
+        )}
+
+        {inactiveError && (
+          <div className="alert alert-warning py-2 small">
+            <i className="bi bi-clock me-1"></i> {inactiveError}
           </div>
         )}
 
@@ -145,7 +167,10 @@ export function Login() {
 
         <div style={{ borderTop: '1px solid #e2e8f0', margin: '24px 0' }} />
         <p className="text-center mb-0 text-muted small">
-          BRAC Institute of Educational Development
+          Don't have an account?{' '}
+          <Link to="/signup" className="fw-semibold">
+            Sign Up
+          </Link>
         </p>
       </div>
     </div>

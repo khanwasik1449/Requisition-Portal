@@ -3,6 +3,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -56,6 +57,7 @@ from .serializers import (
     ContractEmailConfigSerializer,
     ModuleSerializer, FormFieldSerializer, WorkflowStageSerializer,
     AuditLogSerializer, NotificationEmailLogSerializer,
+    NotificationTrackSerializer,
 )
 from .permissions import (
     IsAdminUser, IsSupervisor, IsGrants, IsTransportAdmin,
@@ -68,7 +70,34 @@ User = get_user_model()
 
 
 # Auth Views
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """``accounts.views.CustomLoginView.form_invalid``.
+
+    Self-registration (Tier 3) creates a *disabled* account, and main tells
+    that user so by name rather than with a bad-password message. Checked
+    before SimpleJWT's own authenticate, which would otherwise answer
+    "No active account found with the given credentials" for both cases.
+    """
+
+    def validate(self, attrs):
+        from rest_framework.exceptions import ValidationError
+
+        try:
+            user = User.objects.get(username=attrs.get(self.username_field))
+        except User.DoesNotExist:
+            user = None
+        if user is not None and not user.is_active:
+            raise ValidationError({
+                'inactive': [
+                    'Your account is pending admin approval. Please try again later.'
+                ],
+            })
+        return super().validate(attrs)
+
+
 class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
         if response.status_code == 200:
@@ -2030,3 +2059,313 @@ def module_workflow(request, module_key):
 
     stages = WorkflowStage.objects.filter(module=module).order_by('order')
     return Response(WorkflowStageSerializer(stages, many=True).data)
+
+# =============================================================================
+# Tier 3 -- documentation, self-registration and notification deep links
+# =============================================================================
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def signup(request):
+    """``accounts.views.signup`` -- self-registration that creates a *disabled*
+    account, so an administrator still has to approve it from User Management.
+
+    main reads ``request.POST['username']`` straight out of the dict and 500s
+    when it is missing; here the same two sentences it can actually produce
+    ("Passwords do not match", "Username already exists") come back as 400s, plus
+    a guard for the empty-username case main never reaches from its own form.
+    """
+    username = request.data.get('username') or ''
+    password1 = request.data.get('password1') or ''
+    password2 = request.data.get('password2') or ''
+    email = request.data.get('email') or ''
+    phone = request.data.get('phone') or ''
+    role = request.data.get('role') or User.Role.REQUESTER
+
+    if not username:
+        return Response({'error': 'Username is required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if password1 != password2:
+        return Response({'error': 'Passwords do not match'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if User.objects.filter(username=username).exists():
+        return Response({'error': 'Username already exists'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    User.objects.create_user(
+        username=username,
+        password=password1,
+        email=email,
+        phone=phone,
+        role=role,
+        is_active=False,
+    )
+    return Response({'detail': 'Account created.'})
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def documentation(request):
+    """``requisition_portal.views.documentation`` -- the same rendered page and
+    the same two download formats.
+
+    ``?download=html`` streams back exactly what main's view streams (an
+    attachment), so the file that lands on disk is identical. ``?download=pdf``
+    keeps main's own sentence about WeasyPrint being unavailable -- it answers
+    JSON rather than main's plain-text body so the React page can show the
+    sentence instead of downloading a broken file. The React Download button
+    points at ``?download=html``; main's button points at ``?download=1``,
+    which its own view ignores, so there it just reloads the page.
+    """
+    from django.http import HttpResponse
+
+    fmt = request.query_params.get('download')
+    html = render_to_string('documentation.html') if fmt in ('html', 'pdf') else None
+
+    if fmt == 'html':
+        response = HttpResponse(html, content_type='text/html')
+        response['Content-Disposition'] = \
+            'attachment; filename="Requisition_Portal_Documentation.html"'
+        return response
+
+    if fmt == 'pdf':
+        try:
+            pdf = _render_pdf(html, base_url=None)
+        except PdfUnavailable:
+            return Response(
+                {
+                    'detail': (
+                        'PDF generation requires weasyprint which is not '
+                        'installed. On Windows, install it via WSL2 or use '
+                        'the HTML download option.'
+                    ),
+                    'code': 'pdf_unavailable',
+                },
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = \
+            'attachment; filename="Requisition_Portal_Documentation.pdf"'
+        return response
+
+    return Response({'html': render_to_string('documentation.html')})
+
+
+def _resolve_action(request, token):
+    """Turn a signed email link into the state its page should show.
+
+    ``notifications.views.email_action_view`` renders one of three templates
+    (action_error / reject_reason / action_success) or redirects to login, and
+    applies an approval on the GET that opens the link. This returns the same
+    choice as data and mutates nothing, so the React page can draw exactly the
+    card main would have rendered while a reload can never apply an approval
+    twice -- ``POST`` re-resolves and only then acts.
+
+    Returns ``(http_status, payload)``.
+    """
+    from portal_config import engine
+    from notifications.utils import unsign_action_token
+    from notifications.views import get_requisition_model
+
+    def error(message):
+        return status.HTTP_200_OK, {'kind': 'error', 'error': message}
+
+    data = unsign_action_token(token)
+    if not data:
+        return error('Invalid or expired link.')
+
+    model = get_requisition_model(data['type'])
+    if not model:
+        return error('Invalid requisition type.')
+
+    # main looks both rows up with get_object_or_404, and does so *before* the
+    # login check, so a stale id still 404s for a signed-out visitor.
+    try:
+        requisition = model.objects.get(pk=data['id'])
+    except model.DoesNotExist:
+        return status.HTTP_404_NOT_FOUND, {'kind': 'error', 'error': 'Not found.'}
+    try:
+        actor = User.objects.get(pk=data['user_id'])
+    except User.DoesNotExist:
+        return status.HTTP_404_NOT_FOUND, {'kind': 'error', 'error': 'Not found.'}
+
+    if not request.user.is_authenticated:
+        # main redirects to LOGIN_URL?next=...; the React page turns this into
+        # the same jump, back to its own path for the same token. Answered with
+        # a 200 and a `kind` rather than a 401 so the axios refresh interceptor
+        # does not hijack the response before the page can read it.
+        return status.HTTP_200_OK, {
+            'kind': 'login_required',
+            'next': f'/notifications/action/{token}',
+        }
+    if request.user.pk != actor.pk:
+        return error(
+            'This approval link was sent to a different user. '
+            'Sign in as that user, or open the requisition from your dashboard.'
+        )
+
+    stage = engine.get_stage(data['type'], requisition.status)
+    if stage is None or stage.is_terminal:
+        return error('This requisition is no longer awaiting approval.')
+    if not engine.stage_allows(stage, actor):
+        return error(f'You are not authorised to act at "{stage.name}".')
+
+    base = {
+        'action': data['action'],
+        'req_type': data['type'],
+        'requisition': {
+            'id': requisition.pk,
+            'request_number': requisition.request_number,
+        },
+        'stage': {'key': stage.key, 'name': stage.name},
+        'portal_url': '/',
+        'token': token,
+    }
+
+    if data['action'] == 'approve':
+        if not stage.can_approve:
+            return error(f'"{stage.name}" does not allow approval.')
+        return status.HTTP_200_OK, {
+            **base,
+            'kind': 'approve-ready',
+            'message': f'Requisition #{requisition.pk} approved at "{stage.name}".',
+        }
+
+    if data['action'] == 'reject':
+        if not stage.can_decline:
+            return error(f'"{stage.name}" does not allow declining.')
+        return status.HTTP_200_OK, {
+            **base,
+            'kind': 'reject-form',
+            'message': f'Requisition #{requisition.pk} rejected at "{stage.name}".',
+            'require_reason': bool(stage.require_reason_on_decline),
+        }
+
+    return error('Invalid action.')
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([permissions.AllowAny])
+def notification_action(request, token):
+    """``notifications.views.email_action_view`` -- approve or decline from the
+    link in an approval email.
+
+    GET only resolves (see ``_resolve_action``); the React page issues POST
+    once, which re-resolves and then performs the same work main's handler does
+    -- audit entry, move to the next configured stage, mail the next approver
+    and the requester.
+    """
+    http_status, payload = _resolve_action(request, token)
+
+    if http_status != status.HTTP_200_OK:
+        return Response(payload, status=http_status)
+
+    if request.method == 'GET':
+        return Response(payload)
+
+    # `login_required` and every `error` resolve to a card with nothing to do --
+    # the page still POSTs so a stale link reports exactly what it would have
+    # rendered, rather than applying against a state that has since moved on.
+    if payload['kind'] not in ('approve-ready', 'reject-form'):
+        return Response(payload)
+
+    # ---- perform ----
+    from portal_config import engine
+    from notifications.utils import unsign_action_token, log_audit, notify_requester
+    from notifications.views import _advance_from_email, get_requisition_model
+
+    data = unsign_action_token(token)
+    model = get_requisition_model(data['type'])
+    requisition = model.objects.get(pk=data['id'])
+    actor = User.objects.get(pk=data['user_id'])
+    stage = engine.get_stage(data['type'], requisition.status)
+
+    if payload['action'] == 'approve':
+        _advance_from_email(request, data['type'], requisition, stage, actor)
+        return Response({'kind': 'success', 'message': payload['message']})
+
+    # reject
+    reason = (request.data.get('reason') or '').strip()
+    if not reason and payload.get('require_reason'):
+        return Response(
+            {'detail': 'Please give a reason so the requester knows what to fix.',
+             'kind': 'validation'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    requisition.status = model.Status.REJECTED
+    requisition.rejection_reason = reason
+    requisition.rejected_at = timezone.now()
+    requisition.save()
+
+    log_audit(data['type'], requisition.pk, requisition.request_number,
+              'rejected', actor, f'{stage.name}: {reason}')
+    notify_requester(data['type'], requisition, data['type'], 'rejected')
+    return Response({'kind': 'success', 'message': payload['message']})
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def notification_track(request, req_type, pk):
+    """``notifications.views.track_view`` -- the public status card the
+    "Track Request Status" button in the requester's email opens.
+
+    ``track.html`` is a standalone page (no base.html), so this returns the
+    requisition and its label and the React route draws the same card.
+    """
+    from notifications.views import get_requisition_model
+
+    model = get_requisition_model(req_type)
+    if not model:
+        return Response({'error': 'Invalid requisition type.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    try:
+        requisition = model.objects.get(pk=pk)
+    except model.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    labels = {'ict': 'ICT', 'transport': 'Transport', 'internal': 'Internal'}
+    return Response({
+        'label': labels.get(req_type, 'Requisitions'),
+        'r': NotificationTrackSerializer(requisition).data,
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser | IsICTAdmin | IsTransportAdmin | IsInternalAdmin])
+def notification_send_reminder(request, req_type, pk):
+    """``notifications.views.send_reminder`` -- re-send the approval request to
+    whoever owns the stage the requisition is sitting at.
+
+    main guards the same four roles (admin, or the module's own admin) and then
+    redirects back with a message; here the guard is the DRF permission and the
+    two messages come back as data. Both methods are accepted because main
+    exposes it as a plain link while React presses it from a button.
+    """
+    from notifications.views import _get_req_model
+    from notifications.utils import send_approval_request
+    from portal_config import engine
+
+    model = _get_req_model(req_type)
+    if not model:
+        return Response({'detail': 'Invalid requisition type.', 'level': 'error'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        requisition = model.objects.get(pk=pk)
+    except model.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    stage = engine.get_stage(req_type, requisition.status)
+    if stage is None or stage.is_terminal:
+        return Response({
+            'detail': f'Requisition #{requisition.pk} is not pending approval.',
+            'level': 'info',
+        })
+
+    send_approval_request(req_type, requisition, req_type, requisition.status)
+    return Response({
+        'detail': f'Approval request sent to {stage.name} for #{requisition.pk}.',
+        'level': 'success',
+    })
