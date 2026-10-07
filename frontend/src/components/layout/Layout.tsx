@@ -28,9 +28,11 @@ const navigation: NavItem[] = [
   { name: 'MeetSpace', href: '/meetspace', icon: '🚪', roles: ['admin', 'hr_admin', 'requester'] },
 
   { section: 'Human Resources', roles: ['admin', 'hr_admin'] },
-  { name: 'Contracts', href: '/contracts', icon: '📄', roles: ['admin', 'hr_admin'] },
-  { name: 'Employees', href: '/employees', icon: '👤', roles: ['admin', 'hr_admin'] },
-  { name: 'Payslips', href: '/payslips', icon: '💵', roles: ['admin', 'hr_admin'] },
+  // main points these at contracts:dashboard / employees:employee_list /
+  // payslip:create_payslip, i.e. the /hr/... routes.
+  { name: 'Contracts', href: '/hr/contracts', icon: '📄', roles: ['admin', 'hr_admin'] },
+  { name: 'Employees', href: '/hr/employees', icon: '👤', roles: ['admin', 'hr_admin'] },
+  { name: 'Payslips', href: '/hr/payslip', icon: '💵', roles: ['admin', 'hr_admin'] },
 
   { section: 'Administration' },
   { name: 'Form Builder & Workflows', href: '/admin/form-builder', icon: '🧩', roles: ['admin', 'transport_admin'] },
@@ -159,15 +161,6 @@ export function Layout() {
   } else if (/^\/meetspace\/bookings\/\d+$/.test(path)) {
     // booking_detail.html: "Booking #12 — MeetSpace"
     pageTitle = `Booking #${path.split('/').pop()} — MeetSpace`
-  } else if (path.startsWith('/contracts')) {
-    pageTitle = 'Contracts'
-    pageSubtitle = 'Contract management'
-  } else if (path.startsWith('/employees')) {
-    pageTitle = 'Employees'
-    pageSubtitle = 'Employee management'
-  } else if (path.startsWith('/payslips')) {
-    pageTitle = 'Payslips'
-    pageSubtitle = 'Payslip management'
   } else if (path.startsWith('/admin/users')) {
     pageTitle = 'User Management'
   } else if (path.startsWith('/admin/email-settings')) {

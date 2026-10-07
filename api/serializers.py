@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import decimal
 
 from django.db.models import Q
 from rest_framework import serializers
@@ -7,7 +8,11 @@ from transport_requisition.models import TransportRequisition, Vehicle, Driver
 from meetspace.models import Booking, Room, Announcement
 from ict_requisition.models import ICTRequisition
 from internal_requisition.models import InternalRequisition
-from contracts.models import Contract
+from contracts.models import (
+    Contract,
+    EmailConfig as ContractEmailConfig,
+    EmailLog as ContractEmailLog,
+)
 from employees.models import Employee
 from payslip.models import Payslip, PayslipRequest
 from portal_config.models import Module, FormField, WorkflowStage
@@ -677,6 +682,29 @@ class ContractSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id', 'created_at']
 
+    def validate(self, attrs):
+        """contracts/views.create_contract's guard, verbatim.
+
+        Both dates carry a model default, so DRF would let a POST through
+        without them -- the template refuses instead. Checked against the
+        submitted values only, which is what `request.POST.get(...)` sees.
+        """
+        if self.instance is not None and self.partial:
+            return attrs
+
+        start = attrs.get('start_date')
+        end = attrs.get('end_date')
+        salary = attrs.get('salary')
+        try:
+            salary_ok = float(salary or 0) > 0
+        except (TypeError, ValueError):
+            salary_ok = False
+
+        if not start or not end or not salary_ok:
+            raise serializers.ValidationError(
+                'Start date, end date, and salary are required.')
+        return attrs
+
 
 class EmailConfigSerializer(serializers.ModelSerializer):
     department_display = serializers.CharField(
@@ -708,10 +736,44 @@ class EmployeeSerializer(serializers.ModelSerializer):
     revision_count = serializers.SerializerMethodField()
     renewal_count = serializers.SerializerMethodField()
 
+    # add_employee / edit_employee read every one of these straight off the
+    # POST as free text, so the plain-field coercions below reproduce the
+    # view's own `or` expressions instead of DRF's stricter defaults:
+    #   - `designation` is a non-blank model column, which would make DRF say
+    #     "This field may not be blank." before validate() can say what the
+    #     template says ("Designation is required.").
+    #   - `email` is an EmailField, but the view never checks the format --
+    #     only that it is non-empty.
+    #   - `salary` arrives as `request.POST.get("salary") or 0`.
+    #   - `gender`/`tin`/`phone` arrive as `request.POST.get(...) or None`.
+    designation = serializers.CharField(max_length=200, required=False,
+                                        allow_blank=True)
+    email = serializers.CharField(max_length=254, required=False,
+                                  allow_blank=True, allow_null=True)
+    salary = serializers.CharField(required=False, allow_blank=True,
+                                   allow_null=True)
+    gender = serializers.CharField(max_length=20, required=False,
+                                   allow_blank=True, allow_null=True)
+    tin = serializers.CharField(max_length=50, required=False,
+                                allow_blank=True, allow_null=True)
+    phone = serializers.CharField(max_length=15, required=False,
+                                  allow_blank=True, allow_null=True)
+
     class Meta:
         model = Employee
         fields = '__all__'
         read_only_fields = ['id', 'created_at']
+
+    def validate_salary(self, value):
+        """`request.POST.get("salary") or 0` -- a blank cell is 0, anything
+        else has to be a number the model can store."""
+        value = (value or '').strip().replace(',', '')
+        if not value:
+            return decimal.Decimal('0')
+        try:
+            return decimal.Decimal(value)
+        except decimal.InvalidOperation:
+            raise serializers.ValidationError('A valid number is required.')
 
     def _contract_count(self, obj, contract_type):
         return Contract.objects.filter(pin=obj.pin, contract_type=contract_type).count()
@@ -727,6 +789,35 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     def get_renewal_count(self, obj):
         return self._contract_count(obj, 'Renewal')
+
+    def validate(self, attrs):
+        """employees/views.add_employee and .edit_employee both refuse an empty
+        designation or email before the row is written.
+
+        The model fields are blank=True, so DRF would happily accept them;
+        re-running the template's two checks here keeps the API from creating a
+        row the Django form would have rejected.
+        """
+        instance = self.instance
+        designation = attrs.get(
+            'designation', instance.designation if instance else None)
+        email = attrs.get('email', instance.email if instance else None)
+        errors = {}
+        if not (designation or '').strip():
+            errors['designation'] = 'Designation is required.'
+        if not (email or '').strip():
+            errors['email'] = 'Email address is required.'
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        # `request.POST.get("gender") or None` (and the same for tin / phone):
+        # a blank cell is stored as SQL NULL, not as an empty string.
+        for field in ('gender', 'tin', 'phone'):
+            if field in attrs and attrs[field] == '':
+                attrs[field] = None
+        attrs['email'] = (attrs.get('email') or '').strip()
+        attrs['designation'] = (attrs.get('designation') or '').strip()
+        return attrs
 
 
 # Payslip Serializers
@@ -754,6 +845,82 @@ class PayslipRequestSerializer(serializers.ModelSerializer):
         model = PayslipRequest
         fields = '__all__'
         read_only_fields = ['id', 'created_at']
+
+
+class PayslipCreateSerializer(serializers.ModelSerializer):
+    """Mirrors payslip/views.create_payslip.
+
+    The form posts a single `basic_salary` figure which the view treats as the
+    *total* salary and then splits 50/30/10/10 into the four allowance columns.
+    Saving the posted `basic_salary` straight through would store the total as
+    the basic component and leave the allowances at zero, so the split is
+    reproduced here instead.
+
+    The split columns, `id` (for the success panel's PDF link) and the two
+    computed totals are echoed back so `form.html`'s created_payslip block can
+    be rendered from the response alone.
+    """
+
+    gross_salary = serializers.SerializerMethodField()
+    net_salary = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Payslip
+        fields = [
+            'id', 'pin', 'name', 'designation', 'gender', 'tin', 'month',
+            'year', 'project', 'branch', 'basic_salary', 'house_rent',
+            'medical_allowance', 'conveyance', 'transport', 'income_tax',
+            'other_deduction', 'gross_salary', 'net_salary',
+        ]
+        read_only_fields = ['id']
+
+    def create(self, validated_data):
+        total = float(validated_data.get('basic_salary') or 0)
+        validated_data['basic_salary'] = total * 0.50
+        validated_data['house_rent'] = total * 0.30
+        validated_data['medical_allowance'] = total * 0.10
+        validated_data['conveyance'] = total * 0.10
+        return super().create(validated_data)
+
+    def get_gross_salary(self, obj):
+        return str(obj.gross_salary)
+
+    def get_net_salary(self, obj):
+        return str(obj.net_salary)
+
+
+class ContractEmailSerializer(serializers.Serializer):
+    """POST body for contracts/views.send_contract_email."""
+    recipient = serializers.EmailField(required=False, allow_blank=True)
+    subject = serializers.CharField(required=False, allow_blank=True)
+    body = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class ContractBulkEmailSerializer(serializers.Serializer):
+    """POST body for contracts/views.bulk_email_contracts."""
+    contract_ids = serializers.ListField(
+        child=serializers.IntegerField(), allow_empty=False)
+    subject = serializers.CharField(required=False, allow_blank=True)
+    body = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class ContractEmailLogSerializer(serializers.ModelSerializer):
+    """contracts' own EmailLog -- distinct from notifications' (see the import
+    note in views.py)."""
+
+    class Meta:
+        model = ContractEmailLog
+        fields = '__all__'
+        read_only_fields = ['id', 'sent_at']
+
+
+class ContractEmailConfigSerializer(serializers.ModelSerializer):
+    """contracts' own EmailConfig row."""
+
+    class Meta:
+        model = ContractEmailConfig
+        fields = '__all__'
+        read_only_fields = ['id']
 
 
 # Portal Config Serializers

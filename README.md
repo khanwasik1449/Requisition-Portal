@@ -5,6 +5,13 @@ Development. Covers vehicle transport, meeting room bookings, ICT equipment,
 office supplies and payslips — all behind configurable, database-driven
 approval workflows that an administrator can reshape without editing code.
 
+## Status
+
+Per-area validation — every built page is browser-driven rather than
+source-inspected — is tracked in **[docs/STATUS.md](docs/STATUS.md)**, where
+each area is marked **Real UI-validated** alongside the suites that prove it
+and the handful of deliberate divergences from `main`.
+
 ## Screenshots
 
 ### Public homepage

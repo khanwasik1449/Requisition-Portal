@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db.models import Q, Count
+from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import date, datetime, timedelta
 
@@ -17,6 +18,13 @@ from meetspace.models import Booking, Room, Announcement
 from ict_requisition.models import ICTRequisition
 from internal_requisition.models import InternalRequisition
 from contracts.models import Contract
+# The HR shell has its own EmailConfig / EmailLog tables — distinct from the
+# notifications ones imported below, which back the portal sidebar's email
+# pages. Aliased so both can be used in one module.
+from contracts.models import (
+    EmailConfig as ContractEmailConfig,
+    EmailLog as ContractEmailLog,
+)
 from employees.models import Employee
 from payslip.models import Payslip, PayslipRequest
 from portal_config.models import Module, FormField, WorkflowStage
@@ -43,6 +51,9 @@ from .serializers import (
     InternalRequisitionCreateSerializer, InternalRequisitionActionSerializer,
     ContractSerializer, EmailConfigSerializer, EmailLogSerializer,
     EmployeeSerializer, PayslipSerializer, PayslipRequestSerializer,
+    PayslipCreateSerializer, ContractEmailSerializer,
+    ContractBulkEmailSerializer, ContractEmailLogSerializer,
+    ContractEmailConfigSerializer,
     ModuleSerializer, FormFieldSerializer, WorkflowStageSerializer,
     AuditLogSerializer, NotificationEmailLogSerializer,
 )
@@ -746,6 +757,526 @@ class ContractViewSet(viewsets.ModelViewSet):
     serializer_class = ContractSerializer
     permission_classes = [IsHRAdmin | IsAdminUser]
 
+    CONTRACT_SORTS = {
+        'id', '-id', 'pin', '-pin', 'name', '-name',
+        'salary', '-salary', 'start_date', '-start_date',
+    }
+
+    def get_queryset(self):
+        # Same filter set as contracts.views.contract_list: free-text search
+        # across the four designation columns, a contract-type filter, the
+        # Active/Expiring/Expired window, and the whitelisted sort key.
+        qs = Contract.objects.all()
+        params = self.request.query_params
+
+        search = (params.get('q') or '').strip()
+        if search:
+            qs = qs.filter(
+                Q(pin__icontains=search) |
+                Q(name__icontains=search) |
+                Q(designation__icontains=search) |
+                Q(new_designation__icontains=search)
+            )
+
+        contract_type = params.get('type') or ''
+        if contract_type:
+            qs = qs.filter(contract_type=contract_type)
+
+        status_filter = params.get('status') or ''
+        today = date.today()
+        if status_filter == 'Expired':
+            qs = qs.filter(end_date__lt=today)
+        elif status_filter == 'Expiring':
+            qs = qs.filter(end_date__gte=today,
+                           end_date__lte=today + timedelta(days=30))
+        elif status_filter == 'Active':
+            qs = qs.filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
+
+        sort_key = params.get('sort') or '-id'
+        if sort_key not in self.CONTRACT_SORTS:
+            sort_key = '-id'
+        return qs.order_by(sort_key)
+
+    @action(detail=False, methods=['get'], url_path='csv-template')
+    def csv_template(self, request):
+        """contracts.views.download_csv_template -- verbatim rows."""
+        import csv as csv_mod
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = (
+            'attachment; filename="contract_template.csv"')
+        writer = csv_mod.writer(response)
+        writer.writerow([
+            'PIN', 'Name', 'Designation', 'Salary', 'Start Date', 'End Date',
+            'Contract Type', 'Email', 'Phone', 'TIN', 'New Designation',
+        ])
+        writer.writerow(['123', 'John Doe', 'Senior Analyst', '50000',
+                         '2025-07-01', '2026-06-30', 'Renewal',
+                         'john@company.com', '01712345678', '123456789',
+                         'Lead Analyst'])
+        writer.writerow(['124', 'Jane Smith', 'Manager', '60000',
+                         '2025-07-01', '2026-06-30', 'Extension',
+                         'jane@company.com', '01723456789', '987654321', ''])
+        writer.writerow(['125', 'Alex Lee', 'Analyst', '45000',
+                         '2025-07-01', '2026-06-30', 'Revision',
+                         'alex@company.com', '01734567890', '456789123', ''])
+        return response
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        """contracts.views.generate_pdf -- same template selection, same
+        Content-Disposition, rendered by the same WeasyPrint call."""
+        from django.http import HttpResponse
+
+        contract = self.get_object()
+        template_name = _contract_pdf_template(contract)
+        html_string = render_to_string(template_name, {'contract': contract})
+        try:
+            payload = _render_pdf(html_string,
+                                  request.build_absolute_uri('/'))
+        except PdfUnavailable as exc:
+            return _pdf_unavailable(exc)
+        return HttpResponse(
+            payload,
+            content_type='application/pdf',
+            headers={
+                'Content-Disposition':
+                    f'attachment; filename="contract_{contract.pin}.pdf"'
+            },
+        )
+
+    @action(detail=True, methods=['post'], url_path='email')
+    def send_email(self, request, pk=None):
+        """contracts.views.send_contract_email (POST branch)."""
+        contract = self.get_object()
+        serializer = ContractEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        subject = serializer.validated_data.get('subject') or ''
+        body = serializer.validated_data.get('body') or ''
+        recipient = serializer.validated_data.get('recipient') or ''
+
+        if not recipient:
+            return Response(
+                {'recipient': ['Recipient email is required.']},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        from django.core.mail import EmailMessage
+
+        try:
+            html_string = render_to_string(
+                _contract_pdf_template(contract), {'contract': contract})
+            from weasyprint import HTML
+            pdf_file = HTML(
+                string=html_string,
+                base_url=request.build_absolute_uri('/'),
+            ).write_pdf()
+
+            email = EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=ContractEmailConfig.get_config().default_from_email,
+                to=[recipient],
+            )
+            email.attach(
+                f'contract_{contract.pin}_{contract.id}.pdf',
+                pdf_file, 'application/pdf')
+            email.send()
+
+            ContractEmailLog.objects.create(
+                contract=contract,
+                recipient_email=recipient,
+                recipient_name=contract.name,
+                subject=subject,
+                status='sent',
+            )
+        except Exception as exc:
+            ContractEmailLog.objects.create(
+                contract=contract,
+                recipient_email=recipient,
+                recipient_name=contract.name,
+                subject=subject,
+                status='failed',
+                error_message=str(exc),
+            )
+            return Response(
+                {'detail': f'Failed to send email: {exc}'},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {'detail': f'Email sent successfully to {recipient}!'})
+
+    @action(detail=False, methods=['post'], url_path='bulk')
+    def bulk(self, request):
+        """contracts.views.bulk_create_contracts (POST branch)."""
+        import csv as csv_mod
+        from datetime import datetime as _dt
+
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response({'detail': 'No file uploaded!'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not upload.name.endswith('.csv'):
+            return Response({'detail': 'Only CSV files allowed!'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        def parse_date(value):
+            if not value:
+                return None
+            try:
+                return _dt.strptime(value.strip(), '%Y-%m-%d').date()
+            except Exception:
+                return None
+
+        created = failed = updated = 0
+        try:
+            decoded = upload.read().decode('utf-8-sig').splitlines()
+            reader = csv_mod.DictReader(decoded)
+            if reader.fieldnames:
+                reader.fieldnames = [h.strip() for h in reader.fieldnames]
+
+            for row in reader:
+                try:
+                    row = {k.strip(): (v.strip() if v else '')
+                           for k, v in row.items()}
+
+                    pin = row.get('PIN')
+                    name = row.get('Name')
+                    designation = row.get('Designation')
+                    salary = float(row.get('Salary') or 0)
+                    start_date = parse_date(row.get('Start Date'))
+                    end_date = parse_date(row.get('End Date'))
+                    contract_type = row.get('Contract Type') or 'New'
+                    new_designation = row.get('New Designation') or None
+
+                    if not pin:
+                        failed += 1
+                        continue
+
+                    employee, is_new = Employee.objects.get_or_create(pin=pin)
+                    if name:
+                        employee.name = name
+                    if designation:
+                        employee.designation = designation
+                    if salary:
+                        employee.salary = salary
+                    if row.get('Email'):
+                        employee.email = row.get('Email')
+                    if row.get('Phone'):
+                        employee.phone = row.get('Phone')
+                    if row.get('TIN'):
+                        employee.tin = row.get('TIN')
+                    employee.save()
+
+                    if not is_new:
+                        updated += 1
+
+                    Contract.objects.create(
+                        pin=pin,
+                        name=employee.name,
+                        designation=designation or employee.designation,
+                        salary=salary or employee.salary,
+                        start_date=start_date,
+                        end_date=end_date,
+                        contract_type=contract_type,
+                        new_designation=(
+                            new_designation
+                            if contract_type == 'Renewal' else None),
+                    )
+                    created += 1
+                except Exception:
+                    failed += 1
+        except Exception as exc:
+            return Response({'detail': f'Upload failed: {exc}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        detail = f'{created} contracts created successfully!'
+        if updated:
+            detail += f' {updated} employees updated.'
+        return Response({
+            'detail': detail,
+            'warning': f'{failed} rows failed!' if failed else '',
+            'created': created,
+            'updated': updated,
+            'failed': failed,
+        })
+
+    @action(detail=False, methods=['post'], url_path='bulk-email')
+    def bulk_email(self, request):
+        """contracts.views.bulk_email_contracts -- queue one django-q task per
+        selected contract, all in the same group so the status page can count
+        them."""
+        import time
+
+        serializer = ContractBulkEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contract_ids = serializer.validated_data['contract_ids']
+        subject = serializer.validated_data.get('subject') or 'Contract Document'
+        body = serializer.validated_data.get('body') or ''
+
+        base_url = request.build_absolute_uri('/')
+        group_name = f"bulk_email_{request.user.id}_{int(time.time())}"
+
+        from django_q.tasks import async_task
+        for contract_id in contract_ids:
+            async_task(
+                'contracts.tasks.send_contract_email_task',
+                contract_id, subject, body, base_url, group_name,
+                group=group_name,
+            )
+
+        return Response({
+            'group': group_name,
+            'total': len(contract_ids),
+            'started': time.time(),
+        })
+
+    @action(detail=False, methods=['get'], url_path='bulk-email-status')
+    def bulk_email_status(self, request):
+        """contracts.views.bulk_email_status, minus the session: the React
+        caller passes the group it was handed by POST /bulk-email/."""
+        import time
+
+        from django_q.models import Success, Failure
+
+        group = request.query_params.get('group') or ''
+        total = int(request.query_params.get('total') or 0)
+        started = float(
+            request.query_params.get('started') or time.time())
+
+        sent = failed = 0
+        pending = total
+        results = []
+
+        if group and total > 0:
+            success_qs = Success.objects.filter(group=group)
+            failure_qs = Failure.objects.filter(group=group)
+            sent = success_qs.count()
+            failed = failure_qs.count()
+            pending = total - sent - failed
+
+            for s in success_qs.all()[:50]:
+                result = s.result if isinstance(s.result, dict) else {}
+                results.append({
+                    'contract_id': result.get('contract_id', '?'),
+                    'name': result.get('name', ''),
+                    'email': result.get('email', ''),
+                    'status': 'sent',
+                })
+            for f in failure_qs.all()[:10]:
+                result = f.result if isinstance(f.result, dict) else {}
+                results.append({
+                    'contract_id': result.get('contract_id', '?'),
+                    'name': result.get('name', ''),
+                    'email': result.get('email', ''),
+                    'status': 'failed',
+                    'reason': result.get('reason', str(f.result)[:200]),
+                })
+
+        return Response({
+            'total': total,
+            'sent': sent,
+            'failed': failed,
+            'pending': max(pending, 0),
+            'finished': pending <= 0,
+            'results': results,
+            'elapsed': round(time.time() - started, 1),
+            'group': group,
+        })
+
+    @action(detail=True, methods=['get'], url_path='defaults')
+    def email_defaults(self, request, pk=None):
+        """The subject/body contracts.views.send_contract_email pre-fills on
+        GET, plus the employee email it looks up."""
+        contract = self.get_object()
+        defaults = _contract_email_defaults(contract)
+
+        employee_email = ''
+        employee = Employee.objects.filter(pin=contract.pin).first()
+        if employee and employee.email:
+            employee_email = employee.email
+
+        return Response({
+            'subject': defaults['subject'],
+            'body': defaults['body'],
+            'employee_email': employee_email,
+        })
+
+    @action(detail=False, methods=['get'], url_path='email-log')
+    def email_log(self, request):
+        """contracts.views.email_log -- contracts' own EmailLog table, most
+        recent 200. Deliberately not `/api/email-logs/`, which reads the
+        notifications app's table behind the portal sidebar."""
+        logs = list(ContractEmailLog.objects.all()[:200])
+        return Response({
+            'count': len(logs),
+            'results': ContractEmailLogSerializer(logs, many=True).data,
+        })
+
+    @action(detail=False, methods=['get', 'post'], url_path='email-config')
+    def email_config(self, request):
+        """contracts.views.email_settings.
+
+        `action=save` persists the six fields; `action=test` fills the config
+        in memory, tries the SMTP handshake and reports, without saving --
+        exactly what the template's two branches do.
+        """
+        config = ContractEmailConfig.get_config()
+
+        if request.method == 'GET':
+            return Response(ContractEmailConfigSerializer(config).data)
+
+        fields = {
+            'email_host': (str(request.data.get('email_host', '')).strip(),
+                           True),
+            'email_host_user': (
+                str(request.data.get('email_host_user', '')).strip(), True),
+            'email_host_password': (
+                str(request.data.get('email_host_password', '')).strip(),
+                True),
+            'default_from_email': (
+                str(request.data.get('default_from_email', '')).strip(), True),
+        }
+        for name, (value, _) in fields.items():
+            setattr(config, name, value)
+        try:
+            config.email_port = int(request.data.get('email_port', 587))
+        except (TypeError, ValueError):
+            config.email_port = 587
+        config.email_use_tls = request.data.get('email_use_tls') in (
+            True, 'true', 'on', '1', 1)
+
+        action = request.data.get('action', 'save')
+
+        if action == 'test':
+            import smtplib
+            try:
+                server = smtplib.SMTP(
+                    config.email_host, config.email_port, timeout=10)
+                if config.email_use_tls:
+                    server.starttls()
+                server.login(config.email_host_user,
+                             config.email_host_password)
+                server.quit()
+                return Response({
+                    'detail': 'Connection successful! SMTP server is reachable.',
+                    'level': 'success',
+                    'config': ContractEmailConfigSerializer(config).data,
+                })
+            except Exception as exc:
+                return Response(
+                    {
+                        'detail': f'Connection failed: {exc}',
+                        'level': 'error',
+                        'config': ContractEmailConfigSerializer(config).data,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST)
+
+        config.save()
+        return Response({
+            'detail': 'Email settings saved successfully!',
+            'level': 'success',
+            'config': ContractEmailConfigSerializer(config).data,
+        })
+
+
+class PdfUnavailable(Exception):
+    """WeasyPrint could not be imported or could not reach its native libs.
+
+    WeasyPrint is listed in ``requirements.txt`` (the Linux deploy) but is
+    deliberately absent from ``requirements-windows.txt``: it loads Pango /
+    GObject / Cairo through ctypes, which Windows does not ship. ``main`` has
+    the very same hole -- ``generate_payslip_pdf`` and ``generate_pdf`` 500
+    here -- so rather than surfacing a raw traceback the API says so plainly.
+    """
+
+
+def _render_pdf(html_string, base_url):
+    """``weasyprint.HTML(...).write_pdf()`` with a host-capability guard."""
+    try:
+        from weasyprint import HTML
+    except (ImportError, OSError) as exc:  # missing module or missing DLLs
+        raise PdfUnavailable(str(exc)) from exc
+    try:
+        return HTML(string=html_string, base_url=base_url).write_pdf()
+    except (ImportError, OSError) as exc:
+        raise PdfUnavailable(str(exc)) from exc
+
+
+def _pdf_unavailable(exc):
+    return Response(
+        {
+            'detail': (
+                'PDF export is unavailable on this host: WeasyPrint needs the '
+                'Pango/GObject system libraries, which are not installed '
+                f'(requirements-windows.txt omits weasyprint). ({exc})'
+            ),
+            'code': 'pdf_unavailable',
+        },
+        status=status.HTTP_501_NOT_IMPLEMENTED,
+    )
+
+
+def _contract_pdf_template(contract):
+    """contracts.views.generate_pdf's template pick, verbatim."""
+    return {
+        'Renewal': 'contracts/pdf/renewal.html',
+        'Extension': 'contracts/pdf/extension.html',
+        'Revision': 'contracts/pdf/revision.html',
+        'New': 'contracts/pdf/new.html',
+    }.get(contract.contract_type, 'contracts/pdf/new.html')
+
+
+def _contract_email_defaults(contract):
+    """contracts.views.send_contract_email's GET pre-fill, verbatim."""
+    if contract.contract_type == 'Extension':
+        return {
+            'subject': 'Extension of contract letter',
+            'body': (
+                f"Dear {contract.name},\n\n"
+                "I hope this email finds you well. Please find your "
+                "extension of contract letter attached with this email.\n\n"
+                "You are requested to preserve a copy of the letter with "
+                "yourself and send a copy to us via email with your "
+                "signature in the letter.\n\n"
+                "Please let us know if any further information is required."
+            ),
+        }
+    if contract.contract_type == 'Renewal':
+        return {
+            'subject': 'Renewal of contract',
+            'body': (
+                f"Please find attached the renewal contract for "
+                f"{contract.name} (PIN: {contract.pin}).\n\n"
+                f"Contract Period: {contract.start_date} to "
+                f"{contract.end_date}\n\nBest regards,\nHR Department"
+            ),
+        }
+    if contract.contract_type == 'New':
+        return {
+            'subject': 'New Contract',
+            'body': (
+                f"Please find attached the new contract for "
+                f"{contract.name} (PIN: {contract.pin}).\n\n"
+                f"Contract Period: {contract.start_date} to "
+                f"{contract.end_date}\n\nBest regards,\nHR Department"
+            ),
+        }
+    if contract.contract_type == 'Revision':
+        return {
+            'subject': 'Revision of contract',
+            'body': (
+                f"Please find attached the revised contract for "
+                f"{contract.name} (PIN: {contract.pin}).\n\n"
+                f"Contract Period: {contract.start_date} to "
+                f"{contract.end_date}\n\nBest regards,\nHR Department"
+            ),
+        }
+    return {
+        'subject': 'Contract Document',
+        'body': f"Please find attached the contract for {contract.name}.",
+    }
+
 
 class EmailConfigViewSet(viewsets.ModelViewSet):
     queryset = EmailConfig.objects.all()
@@ -830,6 +1361,90 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all()
     serializer_class = EmployeeSerializer
     permission_classes = [IsHRAdmin | IsAdminUser]
+    # Every route in employees/urls.py addresses an employee by PIN
+    # (`edit/<pin>/`, `detail/<pin>/`, `api/<pin>/`), never by the numeric pk.
+    lookup_field = 'pin'
+
+    def get_queryset(self):
+        # employees.views.employee_list pins the order to `pin`.
+        return Employee.objects.all().order_by('pin')
+
+    def perform_destroy(self, instance):
+        # employees.views.delete_employee also clears the contract history
+        # hanging off the same PIN before removing the row.
+        Contract.objects.filter(pin=instance.pin).delete()
+        instance.delete()
+
+    @action(detail=False, methods=['post'], url_path='import')
+    def import_csv(self, request):
+        """employees.views.import_employees (POST branch) -- positional CSV,
+        header row skipped, update_or_create keyed on PIN."""
+        import csv as csv_mod
+
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response({'detail': 'No file uploaded!'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        created = failed = 0
+        try:
+            decoded = upload.read().decode('utf-8')
+            reader = csv_mod.reader(decoded.splitlines())
+            next(reader, None)
+
+            for row in reader:
+                if len(row) < 2:
+                    continue
+                try:
+                    pin = row[0].strip()
+                    name = row[1].strip()
+                    Employee.objects.update_or_create(
+                        pin=pin,
+                        defaults={
+                            'name': name,
+                            'designation': (
+                                row[2].strip() if len(row) > 2 else 'Staff'),
+                            'gender': row[3].strip() if len(row) > 3 else '',
+                            'tin': row[4].strip() if len(row) > 4 else '',
+                            'phone': row[5].strip() if len(row) > 5 else '',
+                            'email': row[6].strip() if len(row) > 6 else '',
+                            'salary': (
+                                row[7].strip() if len(row) > 7 else 0),
+                        },
+                    )
+                    created += 1
+                except Exception:
+                    failed += 1
+        except Exception as exc:
+            return Response({'detail': f'Error: {exc}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'detail': f'{created} employees imported!',
+            'warning': f'{failed} rows failed' if failed else '',
+            'created': created,
+            'failed': failed,
+        })
+
+    @action(detail=False, methods=['get'], url_path='lookup')
+    def lookup(self, request):
+        """employees.views.employee_api -- the contract form's PIN autofill."""
+        pin = (request.query_params.get('pin') or '').strip()
+        if not pin:
+            return Response({'exists': False})
+        try:
+            emp = Employee.objects.get(pin=pin)
+        except Employee.DoesNotExist:
+            return Response({'exists': False})
+        return Response({
+            'exists': True,
+            'name': emp.name,
+            'designation': emp.designation,
+            'salary': float(emp.salary) if emp.salary else 0,
+            'phone': emp.phone or '',
+            'email': emp.email or '',
+            'tin': emp.tin or '',
+        })
 
 
 # Payslip ViewSets
@@ -839,12 +1454,175 @@ class PayslipViewSet(viewsets.ModelViewSet):
     serializer_class = PayslipSerializer
     permission_classes = [IsHRAdmin | IsAdminUser]
 
+    def get_queryset(self):
+        # payslip.views.payslip_list orders newest-first.
+        return Payslip.objects.all().order_by('-id')
+
+    def get_serializer_class(self):
+        # POST/PUT re-runs the 50/30/10/10 split the form does; the list and
+        # detail read back the already-split columns through the plain model
+        # serializer.
+        if self.action in ('create', 'update', 'partial_update'):
+            return PayslipCreateSerializer
+        return PayslipSerializer
+
+    @action(detail=False, methods=['post'], url_path='bulk')
+    def bulk(self, request):
+        """payslip.bulk_upload_views.bulk_upload_payslip (POST branch).
+
+        One CSV row = one employee: PIN, gender, TIN, then twelve monthly
+        totals. Existing payslips for that PIN/year are wiped first, and every
+        non-zero month is written as a 50/30/10/10 split.
+        """
+        import csv as csv_mod
+
+        year = request.data.get('year', '2025')
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response(
+                {'detail': 'No file uploaded! Please select a CSV file.'},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        months = ["July", "August", "September", "October", "November",
+                  "December", "January", "February", "March", "April",
+                  "May", "June"]
+
+        created = failed = 0
+        error_details = []
+        try:
+            decoded = upload.read().decode('utf-8')
+            reader = csv_mod.reader(decoded.splitlines())
+            next(reader, None)  # Skip header
+
+            pin_mapping = {}
+            employee_file = request.FILES.get('employee_file')
+            if employee_file:
+                emp_data = employee_file.read().decode('utf-8')
+                emp_reader = csv_mod.reader(emp_data.splitlines())
+                next(emp_reader, None)
+                for emp_row in emp_reader:
+                    if len(emp_row) >= 4:
+                        pin_mapping[emp_row[0].strip()] = {
+                            'real_pin': emp_row[1].strip(),
+                            'name': emp_row[2].strip(),
+                            'designation': (
+                                emp_row[3].strip()
+                                if len(emp_row) > 3 else 'Staff'),
+                        }
+
+            for row_idx, row in enumerate(reader, start=2):
+                if len(row) < 4:
+                    failed += 1
+                    error_details.append(
+                        f"Row {row_idx}: Insufficient columns "
+                        f"(need at least 4, got {len(row)})")
+                    continue
+                try:
+                    dummy_pin = row[0].strip()
+                    gender = row[1].strip() if len(row) > 1 else ''
+                    tin = row[2].strip() if len(row) > 2 else ''
+
+                    emp_info = pin_mapping.get(dummy_pin, {})
+                    real_pin = emp_info.get('real_pin', dummy_pin)
+                    name = emp_info.get('name', f"Employee {real_pin}")
+                    designation = emp_info.get('designation', 'Staff')
+
+                    values = []
+                    for i in range(3, 15):
+                        raw = (row[i].replace(',', '').replace('BDT', '').strip()
+                               if i < len(row) else '0')
+                        try:
+                            values.append(int(float(raw)))
+                        except Exception:
+                            values.append(0)
+
+                    Payslip.objects.filter(pin=real_pin, year=year).delete()
+
+                    for idx, m in enumerate(months):
+                        total = values[idx]
+                        if total > 0:
+                            Payslip.objects.create(
+                                pin=real_pin, name=name,
+                                designation=designation,
+                                gender=gender, tin=tin, month=m, year=year,
+                                basic_salary=total * 0.50,
+                                house_rent=total * 0.30,
+                                medical_allowance=total * 0.10,
+                                conveyance=total * 0.10,
+                            )
+                            created += 1
+                except Exception as exc:
+                    failed += 1
+                    error_details.append(f"Row {row_idx}: {exc}")
+        except Exception as exc:
+            return Response({'detail': f"❌ Upload failed: {exc}"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        detail = ''
+        if created > 0:
+            detail = (f"✅ {created} payslips uploaded successfully "
+                      f"for year {year}!")
+        warning = ''
+        if failed > 0:
+            warning = f"⚠️ {failed} rows failed. "
+            if error_details:
+                warning += ("First 3 errors: "
+                            + "; ".join(error_details[:3]))
+
+        return Response({
+            'detail': detail,
+            'warning': warning,
+            'created': created,
+            'failed': failed,
+            'errors': error_details[:10],
+        })
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        """payslip.views.generate_payslip_pdf."""
+        from django.http import HttpResponse
+
+        payslip = self.get_object()
+        html_string = render_to_string(
+            'payslip/pdf/payslip.html', {'payslip': payslip})
+        try:
+            payload = _render_pdf(html_string,
+                                  request.build_absolute_uri('/'))
+        except PdfUnavailable as exc:
+            return _pdf_unavailable(exc)
+        filename = (
+            f'payslip_{payslip.pin}_{payslip.month}_{payslip.year}.pdf')
+        return HttpResponse(
+            payload,
+            content_type='application/pdf',
+            headers={'Content-Disposition':
+                     f'attachment; filename="{filename}"'},
+        )
+
 
 class PayslipRequestViewSet(viewsets.ModelViewSet):
     # PayslipRequest is also relation-free (name / pin / months / year).
     queryset = PayslipRequest.objects.all()
     serializer_class = PayslipRequestSerializer
-    permission_classes = [IsRequester]
+
+    def get_queryset(self):
+        # payslip.views.payslip_requests orders newest-first.
+        return PayslipRequest.objects.all().order_by('-created_at')
+
+    def get_permissions(self):
+        # payslip.views.request_payslip is a public form (no @login_required);
+        # payslip.views.payslip_requests is HR-admin only. Everything else
+        # (retrieval, edits, deletes) stays behind a signed-in user.
+        if self.action == 'create':
+            return [permissions.AllowAny()]
+        if self.action in ('list', 'retrieve', 'update',
+                           'partial_update', 'destroy'):
+            # `get_permissions` is what DRF calls *instead of* the default
+            # list, so the operands have to be built into instances here --
+            # returning the holder or the class itself leaves DRF holding
+            # something with no `has_permission`.
+            return [(IsHRAdmin | IsAdminUser)()]
+        return [IsRequester()]
 
 
 # Portal Config ViewSets

@@ -145,14 +145,28 @@ export const endpoints = {
 
   // Contracts
   contracts: () => '/contracts/',
+  contractPdf: (id: number) => `/contracts/${id}/pdf/`,
+  contractDefaults: (id: number) => `/contracts/${id}/defaults/`,
+  contractEmail: (id: number) => `/contracts/${id}/email/`,
+  contractCsvTemplate: () => '/contracts/csv-template/',
+  contractBulk: () => '/contracts/bulk/',
+  contractBulkEmail: () => '/contracts/bulk-email/',
+  contractBulkEmailStatus: () => '/contracts/bulk-email-status/',
+  contractEmailLog: () => '/contracts/email-log/',
+  contractEmailConfig: () => '/contracts/email-config/',
   emailConfigs: () => '/email-configs/',
   emailLogs: () => '/email-logs/',
 
   // Employees
   employees: () => '/employees/',
+  employee: (pin: string) => `/employees/${encodeURIComponent(pin)}/`,
+  employeeImport: () => '/employees/import/',
+  employeeLookup: () => '/employees/lookup/',
 
   // Payslips
   payslips: () => '/payslips/',
+  payslipPdf: (id: number) => `/payslips/${id}/pdf/`,
+  payslipBulk: () => '/payslips/bulk/',
   payslipRequests: () => '/payslip-requests/',
 
   // Portal Config

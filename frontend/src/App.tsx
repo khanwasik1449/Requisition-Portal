@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './auth/hooks'
 import { Layout } from './components/layout/Layout'
 import { PublicLayout } from './components/layout/PublicLayout'
+import { HrLayout } from './components/layout/HrLayout'
 import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { Dashboard } from './pages/Dashboard'
@@ -27,9 +28,25 @@ import { InternalCreate } from './pages/internal/InternalCreate'
 import { InternalDetail } from './pages/internal/InternalDetail'
 import { TransportHistory } from './pages/transport/TransportHistory'
 import { TransportReport } from './pages/transport/TransportReport'
+import { ContractForm } from './pages/contracts/ContractForm'
 import { ContractsList } from './pages/contracts/ContractsList'
+import { ContractBulkUpload } from './pages/contracts/ContractBulkUpload'
+import { ContractEmail } from './pages/contracts/ContractEmail'
+import { ContractBulkEmail } from './pages/contracts/ContractBulkEmail'
+import { ContractBulkEmailStatus } from './pages/contracts/ContractBulkEmailStatus'
+import { ContractManual } from './pages/contracts/ContractManual'
+import { HrEmailLog } from './pages/contracts/HrEmailLog'
+import { HrEmailSettings } from './pages/contracts/HrEmailSettings'
 import { EmployeesList } from './pages/employees/EmployeesList'
+import { EmployeeForm } from './pages/employees/EmployeeForm'
+import { EmployeeDelete } from './pages/employees/EmployeeDelete'
+import { EmployeeImport } from './pages/employees/EmployeeImport'
+import { EmployeeDetail } from './pages/employees/EmployeeDetail'
+import { PayslipForm } from './pages/payslip/PayslipForm'
 import { PayslipList } from './pages/payslip/PayslipList'
+import { PayslipBulkUpload } from './pages/payslip/PayslipBulkUpload'
+import { PayslipRequestForm } from './pages/payslip/PayslipRequestForm'
+import { PayslipRequestsList } from './pages/payslip/PayslipRequestsList'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminUserForm } from './pages/admin/AdminUserForm'
 import { FormBuilder } from './pages/admin/FormBuilder'
@@ -168,10 +185,7 @@ export default function App() {
         <Route path="/internal/create" element={<InternalCreate />} />
         <Route path="/internal/:id" element={<InternalDetail />} />
 
-        {/* HR */}
-        <Route path="/contracts" element={<ContractsList />} />
-        <Route path="/employees" element={<EmployeesList />} />
-        <Route path="/payslips" element={<PayslipList />} />
+        {/* HR pages moved to their own shell — see below. */}
 
         {/* Admin */}
         <Route path="/admin/users" element={
@@ -230,6 +244,56 @@ export default function App() {
           </ProtectedRoute>
         } />
       </Route>
+
+      {/* HR module — contracts, employees and payslips all render inside
+          contracts/base.html's own shell in main, not the portal sidebar, so
+          they get a pathless layout route that mounts HrLayout for each
+          /hr/... path. Declared as separate children (rather than nested
+          under a `path="/hr"`) so the public payslip-request page below can
+          claim its own path without competing with this subtree. */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <HrLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* contracts/urls.py */}
+        <Route path="/hr/contracts" element={<ContractsList />} />
+        <Route path="/hr/contracts/list" element={<ContractsList />} />
+        <Route path="/hr/contracts/create" element={<ContractForm />} />
+        <Route path="/hr/contracts/bulk-create" element={<ContractBulkUpload />} />
+        <Route path="/hr/contracts/email/:id" element={<ContractEmail />} />
+        <Route path="/hr/contracts/bulk-email" element={<ContractBulkEmail />} />
+        <Route path="/hr/contracts/bulk-email-status" element={<ContractBulkEmailStatus />} />
+        <Route path="/hr/contracts/manual" element={<ContractManual />} />
+        <Route path="/hr/contracts/email-log" element={<HrEmailLog />} />
+        <Route path="/hr/contracts/email-settings" element={<HrEmailSettings />} />
+
+        {/* employees/urls.py */}
+        <Route path="/hr/employees" element={<EmployeesList />} />
+        <Route path="/hr/employees/add" element={<EmployeeForm />} />
+        <Route path="/hr/employees/edit/:pin" element={<EmployeeForm />} />
+        <Route path="/hr/employees/delete/:pin" element={<EmployeeDelete />} />
+        <Route path="/hr/employees/import" element={<EmployeeImport />} />
+        <Route path="/hr/employees/detail/:pin" element={<EmployeeDetail />} />
+
+        {/* payslip/urls.py */}
+        <Route path="/hr/payslip" element={<PayslipForm />} />
+        <Route path="/hr/payslip/list" element={<PayslipList />} />
+        <Route path="/hr/payslip/bulk" element={<PayslipBulkUpload />} />
+        <Route path="/hr/payslip/requests" element={<PayslipRequestsList />} />
+      </Route>
+
+      {/* payslip/views.request_payslip has no @login_required — it is a
+          standalone public document (it extends nothing), so it renders
+          outside both shells. */}
+      <Route path="/hr/payslip/request" element={<PayslipRequestForm />} />
+
+      {/* Legacy Tier-1 HR paths, kept resolving to the main-equivalent URLs */}
+      <Route path="/contracts" element={<Navigate to="/hr/contracts" replace />} />
+      <Route path="/employees" element={<Navigate to="/hr/employees" replace />} />
+      <Route path="/payslips" element={<Navigate to="/hr/payslip/list" replace />} />
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />

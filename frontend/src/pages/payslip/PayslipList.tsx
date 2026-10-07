@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { api } from '@/api/axios'
 import { getAllResults } from '@/lib/paginate'
 
 // Payslip is a flat row keyed by PIN -- it has no relations at all.
-// `month` and `year` are strings, not numbers.
+// `month` and `year` are strings, not numbers; the Decimal columns come back
+// as strings, exactly what `{{ payslip.basic_salary }}` prints in main.
 interface Payslip {
   id: number
   pin: string
@@ -15,9 +18,20 @@ interface Payslip {
   net_salary: string
 }
 
-function fmtMoney(v: string | number | null | undefined) {
-  if (v === null || v === undefined || v === '') return '—'
-  return Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })
+// Download through axios so the JWT is attached -- a plain <a href> cannot
+// carry the Authorization header.
+async function downloadPayslipPdf(p: Payslip): Promise<void> {
+  const response = await api.get(`/payslips/${p.id}/pdf/`, {
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(new Blob([response.data]))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `payslip_${p.pin}_${p.month}_${p.year}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 // Replica of payslip/templates/payslip/list.html
@@ -29,82 +43,83 @@ export function PayslipList() {
     },
   })
 
-  return (
-    <>
-      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <div>
-          <h2 className="page-title mb-1">Payslip List</h2>
-          <p className="text-muted mb-0 small">Manage and generate payslips</p>
-        </div>
-        <button className="btn btn-success btn-sm">
-          <i className="bi bi-plus-lg me-1"></i> Create New Payslip
-        </button>
-      </div>
+  const rows = payslips?.results ?? []
 
-      <div className="card">
-        <div className="card-body p-0">
-          <div className="table-responsive">
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>PIN</th>
-                  <th>Name</th>
-                  <th>Designation</th>
-                  <th>Month</th>
-                  <th>Year</th>
-                  <th>Basic</th>
-                  <th>Gross</th>
-                  <th>Net</th>
-                  <th className="text-end">PDF</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-5">
-                      <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : isError ? (
-                  <tr>
-                    <td colSpan={9} className="text-center text-danger py-4">
-                      Could not load payslips.
-                    </td>
-                  </tr>
-                ) : payslips?.results.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="text-center text-muted py-4">
-                      No payslips found.
-                    </td>
-                  </tr>
-                ) : (
-                  payslips?.results.map((p) => (
-                    <tr key={p.id}>
-                      <td className="fw-semibold">{p.pin}</td>
-                      <td>{p.name}</td>
-                      <td>{p.designation || '—'}</td>
-                      <td>{p.month}</td>
-                      <td>{p.year}</td>
-                      <td>{fmtMoney(p.basic_salary)}</td>
-                      <td>
-                        <strong>{fmtMoney(p.gross_salary)}</strong>
-                      </td>
-                      <td>
-                        <strong>{fmtMoney(p.net_salary)}</strong>
-                      </td>
-                      <td className="text-end">
-                        <button className="btn btn-sm btn-primary">Download</button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </>
+  return (
+    <div className="card-box">
+      <h4 className="mb-4">Payslip List</h4>
+
+      <table className="table table-striped">
+        <thead>
+          <tr>
+            <th>PIN</th>
+            <th>Name</th>
+            <th>Designation</th>
+            <th>Month</th>
+            <th>Year</th>
+            <th>Basic</th>
+            <th>Gross</th>
+            <th>Net</th>
+            <th>PDF</th>
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            <tr>
+              <td colSpan={9} className="text-center">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </td>
+            </tr>
+          ) : isError ? (
+            <tr>
+              <td colSpan={9} className="text-center text-danger">
+                Could not load payslips.
+              </td>
+            </tr>
+          ) : rows.length === 0 ? (
+            <tr>
+              <td colSpan={9} className="text-center">
+                No payslips found.
+              </td>
+            </tr>
+          ) : (
+            rows.map((p) => (
+              <tr key={p.id}>
+                <td>{p.pin}</td>
+                <td>{p.name}</td>
+                <td>{p.designation}</td>
+                <td>{p.month}</td>
+                <td>{p.year}</td>
+                <td>{p.basic_salary}</td>
+                <td>
+                  <strong>{p.gross_salary}</strong>
+                </td>
+                <td>
+                  <strong>{p.net_salary}</strong>
+                </td>
+                <td>
+                  <a
+                    href={`/api/payslips/${p.id}/pdf/`}
+                    className="btn btn-sm btn-primary"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      void downloadPayslipPdf(p)
+                    }}
+                  >
+                    Download
+                  </a>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+
+      <Link to="/hr/payslip" className="btn btn-success">
+        Create New Payslip
+      </Link>
+    </div>
   )
 }

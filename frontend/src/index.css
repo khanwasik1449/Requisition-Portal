@@ -804,6 +804,195 @@ footer {
   .ref-number { font-size: 1.5rem; letter-spacing: 1px; }
 }
 
+/* ==========================================================================
+   HR shell — contracts/templates/contracts/base.html
+   The HR module renders inside its own shell in main ("HR System /
+   Contract Management" sidebar, its own topbar and content card), so the
+   React counterpart gets its own `.hr-*` class family rather than reusing
+   the portal's `.sidebar` / `.topbar` / `.content-card`. Scoped names keep
+   the two shells from picking up each other's rules.
+   ========================================================================== */
+.hr-toggle { display: none; }
+
+.hr-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .5);
+  z-index: 998;
+}
+.hr-overlay.show { display: block; }
+
+.hr-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 260px;
+  height: 100vh;
+  background: linear-gradient(180deg, #0F172A 0%, #111827 100%);
+  padding: 24px 18px;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255, 255, 255, .05);
+  z-index: 999;
+}
+
+.hr-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 30px;
+  padding: 0 8px;
+}
+.hr-brand-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: rgba(37, 99, 235, .12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #60A5FA;
+  flex-shrink: 0;
+}
+.hr-brand-icon img { width: 40px; height: 40px; object-fit: contain; }
+.hr-brand h4 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.hr-brand small { color: #94A3B8; font-size: 12px; }
+
+.hr-menu-title {
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin: 22px 10px 12px;
+}
+
+.hr-sidebar a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: #CBD5E1;
+  padding: 12px 14px;
+  border-radius: 14px;
+  margin-bottom: 6px;
+  transition: .2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+.hr-sidebar a:hover {
+  background: rgba(255, 255, 255, .06);
+  color: #fff;
+  transform: translateX(2px);
+}
+.hr-sidebar a.active {
+  background: linear-gradient(135deg, #2563EB, #1D4ED8);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, .25);
+}
+
+.hr-userbox {
+  margin-top: 28px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .05);
+}
+.hr-userbox small { color: #94A3B8; display: block; margin-bottom: 10px; }
+.hr-logout {
+  width: 100%;
+  border: none;
+  background: #EF4444;
+  color: #fff;
+  height: 42px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: .2s;
+  cursor: pointer;
+}
+.hr-logout:hover { background: #DC2626; }
+
+.hr-main {
+  margin-left: 260px;
+  min-height: 100vh;
+  padding: 28px;
+}
+
+.hr-topbar {
+  background: rgba(255, 255, 255, .85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 22px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, .04);
+}
+.hr-topbar h5 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.hr-topbar p { margin: 0; color: var(--muted); font-size: 13px; }
+.hr-topbar-user { font-size: 13px; color: #64748B; }
+
+.hr-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 35px rgba(15, 23, 42, .04);
+}
+
+.hr-foot {
+  text-align: center;
+  padding: 20px 28px;
+  font-size: 13px;
+  color: #94A3B8;
+  border-top: 1px solid #E2E8F0;
+  margin-top: 24px;
+}
+
+@media (max-width: 992px) {
+  .hr-sidebar {
+    width: 280px;
+    padding: 20px 14px;
+    transform: translateX(-100%);
+    transition: transform .3s ease;
+  }
+  .hr-sidebar.show { transform: translateX(0); }
+  .hr-overlay.show { display: block; }
+  .hr-main { margin-left: 0; padding: 16px; }
+  .hr-topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .hr-card { padding: 16px; border-radius: 16px; }
+  .hr-toggle {
+    display: block;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+}
+
 /* Bootstrap Icons */
 .bi::before {
   font-family: "bootstrap-icons" !important;

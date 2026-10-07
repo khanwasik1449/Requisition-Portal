@@ -27,6 +27,14 @@ import sys
 import urllib.error
 import urllib.request
 
+# Check names echo the headings they matched, emoji and all; Windows' default
+# console codec would abort the run mid-print rather than report a result.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):  # pragma: no cover - exotic streams
+    pass
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND = os.environ.get("UI_BASE_URL", "http://localhost:5173")
 DJANGO = os.environ.get("UI_DJANGO_URL", "http://127.0.0.1:8000")
@@ -48,6 +56,20 @@ ANNOUNCEMENT = "UI smoke announcement"
 # search only offers slots that are still bookable.
 SLOT_DATE = "2030-03-12"
 BOOKING_DATE = "2030-03-14"
+
+# HR module (contracts / employees / payslips). Four routes are parameterised
+# and need a real row to open, so each area seeds exactly one object carrying
+# this PIN and nothing else -- cleanup keys off it.
+HR_PIN = "UI-TEST-HR"
+HR_NAME = "UI smoke employee"
+HR_MONTH, HR_YEAR = "January", "2031"
+UI_REQ_NAME = "UI smoke requester"
+# Filled in by seed_rows(), which runs before Playwright starts: Django
+# refuses database access while the sync API holds an event loop open.
+HR_CONTRACT_ID = None
+TRANSPORT_ID = None
+ICT_ID = None
+INTERNAL_ID = None
 
 # The five cards the landing page shows while only `transport` is enabled --
 # i.e. the exact contents of the dashboard's Requisitions menu.
@@ -111,6 +133,21 @@ def goto(page, path, heading=None):
     if heading is not None:
         page.get_by_role("heading", name=heading, exact=True) \
             .first.wait_for(state="visible", timeout=WAIT)
+
+
+def goto_redirect(page, path, expected):
+    """Load a legacy address and assert it lands on the HR route it replaced."""
+    before = len(PAGE_ERRORS)
+    page.goto(FRONTEND + path, wait_until="domcontentloaded", timeout=30_000)
+    try:
+        page.wait_for_load_state("networkidle", timeout=10_000)
+    except Exception:  # noqa: BLE001 - HMR keeps a socket open; not fatal
+        pass
+    page.wait_for_url(re.compile(re.escape(expected) + r"$"), timeout=WAIT)
+    verify(page.url.rstrip("/") == (FRONTEND + expected).rstrip("/"),
+           f"expected {expected}, landed on {page.url}")
+    verify(len(PAGE_ERRORS) == before,
+           "uncaught JavaScript: " + " | ".join(PAGE_ERRORS[before:])[:300])
 
 
 def text(page, needle, timeout=WAIT):
@@ -301,9 +338,6 @@ def signed_in_area(browser):
         ("/ict/create", "ICT Requisitions"),
         ("/internal", "Internal Requisitions"),
         ("/internal/create", "Internal Requisitions"),
-        ("/contracts", "Contracts"),
-        ("/employees", "Employees"),
-        ("/payslips", "Payslips"),
         ("/admin/users", "User Management"),
         ("/admin/users/create", "User Management"),
         ("/admin/form-builder", "Portal Configuration"),
@@ -317,6 +351,28 @@ def signed_in_area(browser):
     for path, title in ROUTES:
         check(f"{path} renders {title!r}",
               lambda p=path, t=title: goto(page, p, t))
+
+    # Tier 2C moved the HR pages under /hr/... so their paths mirror
+    # module_include('hr', ...) in the project urls; the addresses the portal
+    # sidebar used to point at must still resolve.
+    for legacy, target in (("/contracts", "/hr/contracts"),
+                           ("/employees", "/hr/employees"),
+                           ("/payslips", "/hr/payslip/list")):
+        check(f"{legacy} redirects to {target}",
+              lambda l=legacy, e=target: goto_redirect(page, l, e))
+
+    # The detail routes are keyed on a seeded row, so assert on that row's
+    # name actually reaching the screen -- proof the page read the record
+    # rather than merely rendering a shell.
+    check("seed rows are available", lambda: verify(
+        TRANSPORT_ID and ICT_ID and INTERNAL_ID and HR_CONTRACT_ID,
+        "seed_rows() did not run -- no ids for the detail routes"))
+    for path in (f"/transport/{TRANSPORT_ID}",
+                 f"/ict/{ICT_ID}",
+                 f"/internal/{INTERNAL_ID}"):
+        check(f"{path} shows the seeded record",
+              lambda p=path: (goto(page, p),
+                              text(page, UI_REQ_NAME)))
 
     check("Form Builder lists real fields", lambda: (
         goto(page, "/admin/form-builder/fields?module=transport",
@@ -359,6 +415,98 @@ def signed_in_area(browser):
           lambda: goto(page, "/this-route-does-not-exist", "Page Not Found"))
 
     return context, page
+
+
+def hr_area(page):
+    """Every route the HR module builds, each inside contracts/base.html's
+    shell -- which is a *different* shell from the portal sidebar, because
+    main renders these pages from the HR base template rather than base.html.
+    """
+
+    section("HR module (contracts / employees / payslips)")
+
+    ROUTES = [
+        ("/hr/contracts", "Contracts dashboard"),
+        ("/hr/contracts/list", "Contracts dashboard"),
+        ("/hr/contracts/create", "Create Contract"),
+        ("/hr/contracts/bulk-create", "Bulk Upload Contracts (CSV)"),
+        (f"/hr/contracts/email/{HR_CONTRACT_ID}", "📧 Send Contract via Email"),
+        ("/hr/contracts/bulk-email", "Bulk Email Contracts"),
+        ("/hr/contracts/manual", "📖 HR Contract System Manual"),
+        ("/hr/contracts/email-log", "📧 Email Log"),
+        ("/hr/contracts/email-settings", "⚙️ Email Settings"),
+        ("/hr/employees", "Employees"),
+        ("/hr/employees/add", "Add Employee"),
+        (f"/hr/employees/edit/{HR_PIN}", "Edit Employee"),
+        (f"/hr/employees/delete/{HR_PIN}", "Delete Employee"),
+        ("/hr/employees/import", "Import Employees"),
+        (f"/hr/employees/detail/{HR_PIN}", "👤 Employee Details"),
+        ("/hr/payslip", "Create Payslip"),
+        ("/hr/payslip/list", "Payslip List"),
+        ("/hr/payslip/bulk", "Bulk Upload Payslip (CSV)"),
+        ("/hr/payslip/requests", "Payslip Requests"),
+    ]
+    for path, title in ROUTES:
+        check(f"{path} renders {title!r}",
+              lambda p=path, t=title: goto(page, p, t))
+
+    def shell_is_the_hr_base():
+        goto(page, "/hr/contracts", "Contracts dashboard")
+        page.locator(".hr-sidebar").first.wait_for(state="visible", timeout=WAIT)
+        verify(page.locator(".sidebar").count() == 0,
+               "the portal sidebar leaked into the HR shell")
+        verify(page.locator(".topbar").count() == 0,
+               "the portal topbar leaked into the HR shell")
+        text(page, "Contract Management")
+        text(page, "MAIN MENU")
+
+    check("HR routes use the HR shell, not the portal sidebar",
+          shell_is_the_hr_base)
+
+    def lit_items(path, heading, expected):
+        goto(page, path, heading)
+        names = [re.sub(r"\s+", " ", n).strip()
+                 for n in page.locator(".hr-sidebar a.active")
+                               .all_inner_texts()]
+        for want in expected:
+            verify(any(want in n for n in names),
+                   f"{path}: {want!r} not lit (saw {names})")
+        for n in names:
+            verify(any(want in n for want in expected),
+                   f"{path}: unexpected {n!r} lit (want {expected})")
+        return f"{len(names)} lit"
+
+    # main's base.html marks items with plain `in request.path` tests, so a
+    # few paths light two entries at once. Reproduced rather than tidied.
+    check("bulk-create lights Create Contract and Bulk Contracts",
+          lambda: lit_items("/hr/contracts/bulk-create",
+                            "Bulk Upload Contracts (CSV)",
+                            ["Create Contract", "Bulk Contracts"]))
+    check("payslip/requests lights Create Payslip and Payslip Requests",
+          lambda: lit_items("/hr/payslip/requests", "Payslip Requests",
+                            ["Create Payslip", "Payslip Requests"]))
+    check("a contract email page lights nothing",
+          lambda: lit_items(f"/hr/contracts/email/{HR_CONTRACT_ID}",
+                            "📧 Send Contract via Email", []))
+
+    check("/hr/contracts/bulk-email-status falls back to the list",
+          lambda: goto_redirect(page, "/hr/contracts/bulk-email-status",
+                                "/hr/contracts/list"))
+
+    def public_request_form():
+        """request_form.html is standalone: no sidebar, no session needed."""
+        goto(page, "/hr/payslip/request")
+        verify(page.locator(".hr-sidebar").count() == 0,
+               "the HR shell wrapped the public payslip-request page")
+        text(page, "Payslip Request")
+        text(page, "Back to Home")
+        page.fill('input[name="name"]', HR_NAME)
+        page.fill('input[name="pin"]', HR_PIN)
+        page.locator('input[name="selected_months"]').first.check()
+        page.click('button[type="submit"]')
+        text(page, "Your payslip request has been submitted successfully!")
+
+    check("the public payslip-request form submits", public_request_form)
 
 
 def booking_detail(page):
@@ -524,6 +672,93 @@ def load_dotenv():
             os.environ.setdefault(key.strip(), value.strip())
 
 
+def seed_rows():
+    """Create one row per model that a parameterised route needs to open.
+
+    Runs before the browser launches; `purge_markers()` removes them all.
+    Nothing here is unique-constrained except `request_number`, which each
+    model's `save()` fills in only when it is empty -- so a marker is passed
+    explicitly and cleanup keys off it.
+    """
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    load_dotenv()
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE",
+                          "requisition_portal.settings")
+    import django
+    django.setup()
+
+    from datetime import date
+
+    from accounts.models import User
+    from contracts.models import Contract
+    from employees.models import Employee
+    from ict_requisition.models import ICTRequisition
+    from internal_requisition.models import InternalRequisition
+    from payslip.models import Payslip, PayslipRequest
+    from transport_requisition.models import TransportRequisition
+
+    global HR_CONTRACT_ID, TRANSPORT_ID, ICT_ID, INTERNAL_ID
+
+    # ---- HR -------------------------------------------------------------
+    contract, _ = Contract.objects.get_or_create(
+        pin=HR_PIN,
+        defaults={"name": HR_NAME, "designation": "Officer", "salary": 5000,
+                  "start_date": date(2030, 1, 1),
+                  "end_date": date(2030, 12, 31),
+                  "contract_type": "New"})
+    HR_CONTRACT_ID = contract.pk
+    Employee.objects.get_or_create(
+        pin=HR_PIN,
+        defaults={"name": HR_NAME, "designation": "Officer",
+                  "email": BOOKING_EMAIL, "salary": 5000, "gender": "F",
+                  "phone": "0700000000", "tin": "T-1"})
+    Payslip.objects.get_or_create(
+        pin=HR_PIN, month=HR_MONTH, year=HR_YEAR,
+        defaults={"name": HR_NAME, "designation": "Officer",
+                  "basic_salary": 5000, "house_rent": 3000,
+                  "medical_allowance": 1000, "conveyance": 1000,
+                  "transport": 500})
+    PayslipRequest.objects.get_or_create(
+        name=HR_NAME, pin=HR_PIN, months=f"{HR_MONTH}, February",
+        year=HR_YEAR)
+
+    # ---- detail routes --------------------------------------------------
+    supervisor = User.objects.filter(is_superuser=True).first()
+
+    transport, _ = TransportRequisition.objects.get_or_create(
+        request_number="UI-TEST-TR",
+        defaults={"full_name": UI_REQ_NAME, "email_address": BOOKING_EMAIL,
+                  "mobile_number": "0700000000", "designation": "Officer",
+                  "pin": HR_PIN, "num_passengers": 1,
+                  "pick_up_date": date(2030, 1, 10),
+                  "pick_up_time": "09:00", "pick_up_location": "Niketon",
+                  "destination": "Gulshan", "drop_off_date": date(2030, 1, 10),
+                  "drop_off_time": "17:00", "drop_off_location": "Niketon",
+                  "travelling_reason": "UI smoke trip",
+                  "project_name_code": "BUIED", "budget_code": "100"})
+    TRANSPORT_ID = transport.pk
+
+    ict, _ = ICTRequisition.objects.get_or_create(
+        request_number="UI-TEST-ICT",
+        defaults={"full_name": UI_REQ_NAME, "email_address": BOOKING_EMAIL,
+                  "designation": "Officer", "pin_number": HR_PIN,
+                  "contact_number": "0700000000",
+                  "device_equipment": "UI smoke laptop",
+                  "purpose": "UI smoke proof",
+                  "requisition_date": date(2030, 1, 5),
+                  "requirement_date": date(2030, 1, 20),
+                  "supervisor": supervisor})
+    ICT_ID = ict.pk
+
+    internal, _ = InternalRequisition.objects.get_or_create(
+        request_number="UI-TEST-INT",
+        defaults={"full_name": UI_REQ_NAME, "email_address": BOOKING_EMAIL,
+                  "mobile_number": "0700000000", "designation": "Officer",
+                  "pin": HR_PIN, "department": "UI smoke department"})
+    INTERNAL_ID = internal.pk
+
+
 def purge_markers(label="cleanup", quiet=False):
     """Delete exactly what a previous run created -- nothing else."""
     section(label)
@@ -536,20 +771,46 @@ def purge_markers(label="cleanup", quiet=False):
 
     from django.db.models import Q
 
+    from contracts.models import Contract
+    from employees.models import Employee
+    from ict_requisition.models import ICTRequisition
+    from internal_requisition.models import InternalRequisition
     from meetspace.models import Announcement, Booking, Room
+    from payslip.models import Payslip, PayslipRequest
+    from transport_requisition.models import TransportRequisition
 
     bookings = Booking.objects.filter(
         Q(meeting_title=BOOKING_TITLE) | Q(email_address__iexact=BOOKING_EMAIL))
     rooms = Room.objects.filter(room_number__iexact=ROOM_NUMBER)
     announcements = Announcement.objects.filter(message__icontains=ANNOUNCEMENT)
+    hr_contracts = Contract.objects.filter(pin=HR_PIN)
+    hr_employees = Employee.objects.filter(pin=HR_PIN)
+    hr_payslips = Payslip.objects.filter(pin=HR_PIN)
+    hr_requests = PayslipRequest.objects.filter(pin=HR_PIN)
+    tr_reqs = TransportRequisition.objects.filter(
+        request_number__startswith="UI-TEST-")
+    ict_reqs = ICTRequisition.objects.filter(
+        request_number__startswith="UI-TEST-")
+    int_reqs = InternalRequisition.objects.filter(
+        request_number__startswith="UI-TEST-")
 
     removed_rooms = rooms.count()
     removed_bookings = bookings.count()
     removed_announcements = announcements.count()
+    removed_hr = (hr_contracts.count() + hr_employees.count()
+                  + hr_payslips.count() + hr_requests.count())
+    removed_requisitions = tr_reqs.count() + ict_reqs.count() + int_reqs.count()
 
     bookings.delete()
     rooms.delete()
     announcements.delete()
+    hr_requests.delete()
+    hr_payslips.delete()
+    hr_contracts.delete()
+    hr_employees.delete()
+    int_reqs.delete()
+    ict_reqs.delete()
+    tr_reqs.delete()
 
     if not quiet:
         def leftovers_are_gone():
@@ -562,11 +823,23 @@ def purge_markers(label="cleanup", quiet=False):
             verify(Announcement.objects.filter(
                 message__icontains=ANNOUNCEMENT).count() == 0,
                 "the test announcement survived cleanup")
+            verify(Contract.objects.filter(pin=HR_PIN).count() == 0,
+                   "the test contract survived cleanup")
+            verify(Employee.objects.filter(pin=HR_PIN).count() == 0,
+                   "the test employee survived cleanup")
+            verify(Payslip.objects.filter(pin=HR_PIN).count() == 0,
+                   "the test payslip survived cleanup")
+            verify(PayslipRequest.objects.filter(pin=HR_PIN).count() == 0,
+                   "the test payslip request survived cleanup")
+            verify(tr_reqs.count() + ict_reqs.count() + int_reqs.count() == 0,
+                   "a seeded requisition survived cleanup")
 
         check("no test data left behind", leftovers_are_gone)
 
     print(f"  (removed {removed_rooms} rooms, {removed_bookings} bookings, "
-          f"{removed_announcements} announcements)", flush=True)
+          f"{removed_announcements} announcements, {removed_hr} HR rows, "
+          f"{removed_requisitions} requisitions)",
+          flush=True)
 
 
 def report():
@@ -610,12 +883,14 @@ def main():
     # A crashed run must not leave its room/booking behind, or the "Add Room"
     # and "opens the new booking" proofs below would pass vacuously.
     purge_markers("pre-clean", quiet=True)
+    seed_rows()
 
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=args.headless)
             try:
                 auth_context, auth_page = signed_in_area(browser)
+                hr_area(auth_page)
                 public_area(browser)
                 booking_detail(auth_page)
             finally:
