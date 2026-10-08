@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { FormLoading } from '@/components/FormLoading'
 import { useStaffDefaults } from '@/lib/staffDefaults'
 
 const equipmentOptions = [
@@ -26,6 +27,10 @@ export function ICTCreate() {
   const [otherEquipment, setOtherEquipment] = useState('')
   const [otherEnabled, setOtherEnabled] = useState(false)
   const staffDefaults = useStaffDefaults()
+
+  // The employee lookup is async and `defaultValue` is only read on mount, so
+  // hold the form until it lands — otherwise the PIN stays blank.
+  if (staffDefaults.loading) return <FormLoading />
 
   const toggleEquipment = (name: string) => {
     setSelectedEquipment((prev) =>
@@ -123,6 +128,7 @@ export function ICTCreate() {
                     name="designation"
                     className="form-control"
                     placeholder="e.g. Software Engineer"
+                    defaultValue={staffDefaults.designation}
                     required
                   />
                 </div>
@@ -138,6 +144,7 @@ export function ICTCreate() {
                     name="pin_number"
                     className="form-control"
                     placeholder="Staff PIN number"
+                    defaultValue={staffDefaults.pin_number}
                     required
                   />
                 </div>

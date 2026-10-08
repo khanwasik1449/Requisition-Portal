@@ -64,6 +64,11 @@ HR_PIN = "UI-TEST-HR"
 HR_NAME = "UI smoke employee"
 HR_MONTH, HR_YEAR = "January", "2031"
 UI_REQ_NAME = "UI smoke requester"
+# A signed-in employee. The Requisitions menu is employees-only, and this
+# account's email matches the seeded HR employee record, so the portal can
+# find the row and treat the account as an employee.
+UI_EMP_USER = "ui_employee"
+UI_EMP_PASSWORD = "pass-12345"
 # Filled in by seed_rows(), which runs before Playwright starts: Django
 # refuses database access while the sync API holds an event loop open.
 HR_CONTRACT_ID = None
@@ -170,14 +175,17 @@ def click(page, selector, timeout=WAIT):
     return locator
 
 
-def login(page):
+def login(page, username=None, password=None):
     goto(page, "/")
-    fill(page, 'input[placeholder="Enter your username"]', USERNAME)
-    fill(page, 'input[placeholder="Enter your password"]', PASSWORD)
+    fill(page, 'input[placeholder="Enter your username"]',
+         username if username is not None else USERNAME)
+    fill(page, 'input[placeholder="Enter your password"]',
+         password if password is not None else PASSWORD)
     page.locator('form button[type="submit"]').first.click()
     page.wait_for_url("**/dashboard", timeout=30_000)
-    page.get_by_role("heading", name="Admin Dashboard", exact=True) \
-        .first.wait_for(state="visible", timeout=WAIT)
+    # The topbar user block renders for every role; the dashboard's own heading
+    # text is role-dependent, so this is the reliable "signed in" signal.
+    page.locator(".topbar-user").first.wait_for(state="visible", timeout=WAIT)
     return page.url
 
 
@@ -210,14 +218,14 @@ def signed_in_area(browser):
     ))
 
     def requisitions_menu():
-        click(page, ".topbar-requisitions button.dropdown-toggle")
-        menu = page.locator(".topbar-requisitions .dropdown-menu.show a.dropdown-item")
-        expect_count(menu, 5)
-        items = [t.strip() for t in menu.all_inner_texts()]
-        verify(items == EXPECTED_MENU,
-               f"menu holds {items}, expected {EXPECTED_MENU}")
+        # The admin account has no HR employee record, so the Requisitions
+        # menu is employees-only and must not render for it at all.
+        verify(page.locator(
+            ".topbar-requisitions button.dropdown-toggle").count() == 0,
+            "the Requisitions menu rendered for the admin, who is not an employee")
 
-    check("Requisitions menu holds exactly 5 entries", requisitions_menu)
+    check("the admin (not an employee) gets no Requisitions menu",
+          requisitions_menu)
 
     section("MeetSpace")
 
@@ -526,6 +534,41 @@ def booking_detail(page):
 
 
 # --------------------------------------------------------------------------
+# Employee area -- the Requisitions menu, which is employees-only
+# --------------------------------------------------------------------------
+def employee_area(browser):
+    """The same menu seen by an account that *is* an employee.
+
+    The admin has no HR employee record, so the button is hidden for it; this
+    account's email matches the seeded employee record, so the portal finds the
+    row and renders the menu.
+    """
+    context = browser.new_context()
+    page = context.new_page()
+    page.on("pageerror", lambda e: PAGE_ERRORS.append(f"employee: {e}"))
+
+    section("employee requisitions menu")
+
+    check(f"signing in as {UI_EMP_USER}",
+          lambda: login(page, UI_EMP_USER, UI_EMP_PASSWORD))
+
+    def menu():
+        btn = page.locator(".topbar-requisitions button.dropdown-toggle")
+        btn.first.wait_for(state="visible", timeout=WAIT)
+        click(page, ".topbar-requisitions button.dropdown-toggle")
+        items = page.locator(
+            ".topbar-requisitions .dropdown-menu.show a.dropdown-item")
+        expect_count(items, 5)
+        labels = [t.strip() for t in items.all_inner_texts()]
+        verify(labels == EXPECTED_MENU,
+               f"menu holds {labels}, expected {EXPECTED_MENU}")
+
+    check("an employee gets the 5-entry Requisitions menu", menu)
+
+    context.close()
+
+
+# --------------------------------------------------------------------------
 # Public area -- fresh, anonymous browser context
 # --------------------------------------------------------------------------
 def public_area(browser):
@@ -758,6 +801,13 @@ def seed_rows():
                   "pin": HR_PIN, "department": "UI smoke department"})
     INTERNAL_ID = internal.pk
 
+    # A signed-in employee, so the employees-only Requisitions menu has
+    # someone to render for. Its email matches the seeded employee record,
+    # which is what /api/employees/mine/ matches on.
+    User.objects.create_user(
+        username=UI_EMP_USER, password=UI_EMP_PASSWORD,
+        role=User.Role.REQUESTER, email=BOOKING_EMAIL)
+
 
 def purge_markers(label="cleanup", quiet=False):
     """Delete exactly what a previous run created -- nothing else."""
@@ -778,6 +828,8 @@ def purge_markers(label="cleanup", quiet=False):
     from meetspace.models import Announcement, Booking, Room
     from payslip.models import Payslip, PayslipRequest
     from transport_requisition.models import TransportRequisition
+
+    from accounts.models import User as PortalUser
 
     bookings = Booking.objects.filter(
         Q(meeting_title=BOOKING_TITLE) | Q(email_address__iexact=BOOKING_EMAIL))
@@ -811,6 +863,7 @@ def purge_markers(label="cleanup", quiet=False):
     int_reqs.delete()
     ict_reqs.delete()
     tr_reqs.delete()
+    PortalUser.objects.filter(username=UI_EMP_USER).delete()
 
     if not quiet:
         def leftovers_are_gone():
@@ -890,6 +943,7 @@ def main():
             browser = pw.chromium.launch(headless=args.headless)
             try:
                 auth_context, auth_page = signed_in_area(browser)
+                employee_area(browser)
                 hr_area(auth_page)
                 public_area(browser)
                 booking_detail(auth_page)

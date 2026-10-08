@@ -23,6 +23,7 @@ import { AnnouncementForm } from './pages/meetspace/AnnouncementForm'
 import { ICTList } from './pages/ict/ICTList'
 import { ICTCreate } from './pages/ict/ICTCreate'
 import { ICTDetail } from './pages/ict/ICTDetail'
+import { BuEmailRequest } from './pages/BuEmailRequest'
 import { InternalList } from './pages/internal/InternalList'
 import { InternalCreate } from './pages/internal/InternalCreate'
 import { InternalDetail } from './pages/internal/InternalDetail'
@@ -183,6 +184,10 @@ export default function App() {
         <Route path="/ict" element={<ICTList />} />
         <Route path="/ict/create" element={<ICTCreate />} />
         <Route path="/ict/:id" element={<ICTDetail />} />
+
+        {/* BRAC University email request -- new in-app form (main links out to a
+            Google Form), so it sits with the other staff request forms. */}
+        <Route path="/bu-email/request" element={<BuEmailRequest />} />
 
         {/* Internal */}
         <Route path="/internal" element={<InternalList />} />

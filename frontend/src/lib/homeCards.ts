@@ -31,23 +31,29 @@ const externalForms: HomeCard[] = [
     key: 'bu_email',
     title: 'BRAC University Email',
     description: 'Request a BRAC University email address for staff and students.',
-    href: 'https://docs.google.com/forms/d/e/1FAIpQLSfoS2BCEoAnFxu6DnT00DaAikaCWwuqstZHr7LmIV2Kwqb-nw/viewform',
+    // In-app, like Transport Request: the request is e-mailed to the internal
+    // team and the applicant's details are pre-filled. `main` links out to a
+    // Google Form here instead.
+    to: '/bu-email/request',
     icon: 'bi-envelope-paper',
     bg: '#EDE9FE',
     fg: '#6D28D9',
-    linkText: 'Open form',
-    linkIcon: 'bi-box-arrow-up-right',
+    linkText: 'Start request',
+    linkIcon: 'bi-arrow-right',
   },
   {
     key: 'ict_form',
     title: 'ICT Requisition',
     description: 'Request IT equipment, software licences and accessories.',
-    href: 'https://docs.google.com/forms/d/e/1FAIpQLScNgf61ZQ-cV3q4CXbsbZuQN0Q_HFI9Y3jCPNaElVJi7KpV5Q/viewform',
+    // In-app, like Transport Request: the portal has its own ICT form
+    // (ict_requisition/form.html), and only that one can pre-fill the
+    // applicant's details. `main` links out to a Google Form here instead.
+    to: '/ict/create',
     icon: 'bi-pc-display',
     bg: '#EFF6FF',
     fg: '#2563EB',
-    linkText: 'Open form',
-    linkIcon: 'bi-box-arrow-up-right',
+    linkText: 'Start request',
+    linkIcon: 'bi-arrow-right',
   },
   {
     key: 'mail_service',

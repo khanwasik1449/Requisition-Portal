@@ -202,6 +202,15 @@ body {
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 8px 30px rgba(15, 23, 42, .04);
+  /* The Requisitions menu opens out of the topbar and has to clear the page
+     below it. `backdrop-filter` already makes the topbar a stacking context,
+     but it still painted in tree order alongside .content-card's own
+     positioned children — and `.card` is `position: relative`, so it sat
+     later and covered the menu. An explicit level lifts the menu over every
+     card, while staying under .sidebar/.hr-sidebar (998/999) and Bootstrap's
+     modal (1055), which must both keep winning. */
+  position: relative;
+  z-index: 500;
 }
 
 .topbar-left {

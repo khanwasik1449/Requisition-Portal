@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/axios'
@@ -62,6 +62,14 @@ export function TransportTrack() {
   })
 
   const stageByKey = new Map((stages || []).map((s) => [s.key, s]))
+
+  // The employee lookup is async, so the address lands after mount — push it
+  // in then, but never over what the applicant has already typed.
+  useEffect(() => {
+    if (staffDefaults.email_address) {
+      setEmail((prev) => prev || staffDefaults.email_address)
+    }
+  }, [staffDefaults.email_address])
 
   const statusBadge = (row: TrackRow) => {
     const stage = stageByKey.get(row.status)

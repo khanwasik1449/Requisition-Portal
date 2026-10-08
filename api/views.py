@@ -1475,6 +1475,34 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             'tin': emp.tin or '',
         })
 
+    @action(detail=False, methods=['get'], url_path='mine',
+            permission_classes=[permissions.IsAuthenticated])
+    def mine(self, request):
+        """The HR employee record belonging to the signed-in user, if there is one.
+
+        `Employee` has no foreign key to `User`, so the record is matched on the
+        email address HR entered when it was created. The requisition forms use
+        this to pre-fill the PIN, which lives only on the employee record and
+        never on the account -- so without this there is nothing to read it from.
+
+        Answered with `{'found': False}` rather than a 404 so the forms can fall
+        back to the account's own details without treating it as an error.
+        """
+        email = (request.user.email or '').strip()
+        if not email:
+            return Response({'found': False})
+        emp = Employee.objects.filter(email__iexact=email).first()
+        if emp is None:
+            return Response({'found': False})
+        return Response({
+            'found': True,
+            'pin': emp.pin,
+            'name': emp.name,
+            'designation': emp.designation,
+            'phone': emp.phone or '',
+            'email': emp.email or '',
+        })
+
 
 # Payslip ViewSets
 class PayslipViewSet(viewsets.ModelViewSet):
@@ -2369,3 +2397,72 @@ def notification_send_reminder(request, req_type, pk):
         'detail': f'Approval request sent to {stage.name} for #{requisition.pk}.',
         'level': 'success',
     })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def bu_email_request(request):
+    """Request a BRAC University (@bracu.ac.bd) email address.
+
+    ``main`` has no such form at all -- ``public_home.html`` links out to a
+    Google Form -- so this route is new rather than a port. The request is
+    e-mailed to the internal team's inbox (the ``internal`` department's
+    ``notification_email``, the address that already receives internal resource
+    requests) and the applicant gets a confirmation screen.
+
+    The send goes through the same django-q path as every other portal e-mail,
+    so until HR configures an ``EmailConfig`` it lands in ``EmailLog`` as
+    ``failed`` -- exactly as contract e-mail does on this host.
+    """
+    from django.conf import settings
+    from notifications.models import EmailConfig
+    from notifications.utils import send_department_email
+
+    full_name = (request.data.get('full_name') or '').strip()
+    email_address = (request.data.get('email_address') or '').strip()
+    pin = (request.data.get('pin_number') or '').strip()
+    designation = (request.data.get('designation') or '').strip()
+    department = (request.data.get('department') or '').strip()
+    phone = (request.data.get('phone') or '').strip()
+    requested_email = (request.data.get('requested_email') or '').strip()
+    reason = (request.data.get('reason') or '').strip()
+
+    if not full_name:
+        return Response({'full_name': 'This field is required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if not email_address:
+        return Response({'email_address': 'This field is required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if not requested_email:
+        return Response({'requested_email': 'This field is required.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    config = EmailConfig.objects.filter(
+        department='internal', is_active=True).first()
+    to_email = config.notification_email if config else settings.DEFAULT_FROM_EMAIL
+
+    subject = f'BRAC University Email Request — {full_name}'
+    rows = [
+        ('Full Name', full_name),
+        ('Current Email', email_address),
+        ('PIN', pin),
+        ('Designation', designation),
+        ('Department', department),
+        ('Phone', phone),
+        ('Requested Address', requested_email),
+        ('Reason', reason),
+    ]
+    body = ''.join(
+        f'<tr><td style="padding:4px 12px 4px 0;color:#64748b;'
+        f'vertical-align:top;">{label}</td>'
+        f'<td style="padding:4px 0;font-weight:600;">{value or "—"}</td></tr>'
+        for label, value in rows
+    )
+    message = (
+        '<p>A BRAC University email address has been requested.</p>'
+        f'<table cellpadding="0" cellspacing="0" style="margin:12px 0;">{body}</table>'
+    )
+
+    send_department_email('internal', subject, message, [to_email],
+                          html=True, email_type='bu_email_request')
+    return Response({'detail': 'Request submitted.'})

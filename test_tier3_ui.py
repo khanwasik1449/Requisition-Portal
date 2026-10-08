@@ -46,6 +46,7 @@ MARK = "T3UI-"
 USER_MARK = "tier3ui_"
 INACTIVE_PASSWORD = "pass-12345"
 SIGNUP_PASSWORD = "Sup3rSecret!"
+EMP_PASSWORD = "pass-12345"
 
 INACTIVE_SENTENCE = (
     "Your account is pending admin approval. Please try again later."
@@ -136,14 +137,17 @@ def click(page, selector, timeout=WAIT):
     return locator
 
 
-def login(page):
+def login(page, username=None, password=None):
     goto(page, "/")
-    fill(page, 'input[placeholder="Enter your username"]', USERNAME)
-    fill(page, 'input[placeholder="Enter your password"]', PASSWORD)
+    fill(page, 'input[placeholder="Enter your username"]',
+         username if username is not None else USERNAME)
+    fill(page, 'input[placeholder="Enter your password"]',
+         password if password is not None else PASSWORD)
     page.locator('form button[type="submit"]').first.click()
     page.wait_for_url("**/dashboard", timeout=30_000)
-    page.get_by_role("heading", name="Admin Dashboard", exact=True) \
-        .first.wait_for(state="visible", timeout=WAIT)
+    # The topbar user block renders for every role; the dashboard's own heading
+    # text is role-dependent, so this is the reliable "signed in" signal.
+    page.locator(".topbar-user").first.wait_for(state="visible", timeout=WAIT)
     return page.url
 
 
@@ -190,6 +194,7 @@ def seed_rows():
     from datetime import date
 
     from accounts.models import User
+    from employees.models import Employee
     from ict_requisition.models import ICTRequisition
     from internal_requisition.models import InternalRequisition
     from notifications.utils import sign_action_token
@@ -254,6 +259,16 @@ def seed_rows():
         username=USER_MARK + "inactive", password=INACTIVE_PASSWORD,
         role="requester", is_active=False)
 
+    # A signed-in employee. The Requisitions menu and the BU email form are
+    # employees-only, and the request forms pre-fill from the employee record.
+    User.objects.create_user(
+        username=USER_MARK + "emp", password=EMP_PASSWORD,
+        role=User.Role.REQUESTER, first_name="Tier", last_name="Three",
+        email="t3ui.emp@example.com", phone="0700000000")
+    Employee.objects.create(
+        pin="T3UI-EMP", name="Tier Three Employee", designation="Officer",
+        email="t3ui.emp@example.com", phone="0700000000")
+
 
 def _django():
     """Standalone scripts have to bootstrap Django themselves -- `manage.py`
@@ -274,6 +289,7 @@ def purge_markers(label="cleanup", quiet=False):
         section(label)
 
     from accounts.models import User
+    from employees.models import Employee
     from ict_requisition.models import ICTRequisition
     from internal_requisition.models import InternalRequisition
     from notifications.models import AuditLog, EmailLog
@@ -307,6 +323,7 @@ def purge_markers(label="cleanup", quiet=False):
     ICTRequisition.objects.filter(request_number__startswith=MARK).delete()
     InternalRequisition.objects.filter(
         request_number__startswith=MARK).delete()
+    Employee.objects.filter(pin="T3UI-EMP").delete()
     User.objects.filter(username__startswith=USER_MARK).delete()
 
     try:
@@ -457,6 +474,63 @@ def signed_in_area(browser):
 
 
 # --------------------------------------------------------------------------
+# Employee area -- the Requisitions menu and the employee-only forms
+# --------------------------------------------------------------------------
+def employee_area(browser):
+    """The Requisitions menu and the employee-only forms, as an employee sees them.
+
+    The admin account has no HR employee record, so the menu is hidden for it;
+    this account's email matches the seeded employee record, so the portal
+    finds the row and renders it.
+    """
+    context = browser.new_context()
+    page = context.new_page()
+    page.on("pageerror", lambda e: PAGE_ERRORS.append(f"employee: {e}"))
+
+    section("employee area")
+
+    check(f"signing in as {USER_MARK}emp",
+          lambda: login(page, USER_MARK + "emp", EMP_PASSWORD))
+
+    def menu():
+        btn = page.locator(".topbar-requisitions button.dropdown-toggle")
+        btn.first.wait_for(state="visible", timeout=WAIT)
+        click(page, ".topbar-requisitions button.dropdown-toggle")
+        items = page.locator(
+            ".topbar-requisitions .dropdown-menu.show a.dropdown-item")
+        expect_count(items, 5)
+
+    check("an employee gets the 5-entry Requisitions menu", menu)
+
+    def ict_prefill():
+        goto(page, "/ict/create")
+        page.locator('input[name="pin_number"]').wait_for(
+            state="visible", timeout=WAIT)
+        pin = page.locator('input[name="pin_number"]').input_value()
+        name = page.locator('input[name="full_name"]').input_value()
+        verify(pin == "T3UI-EMP", f"PIN not pre-filled, got {pin!r}")
+        verify(name == "Tier Three Employee",
+               f"name not pre-filled, got {name!r}")
+
+    check("/ict/create pre-fills the employee's name and PIN", ict_prefill)
+
+    def bu_email():
+        goto(page, "/bu-email/request")
+        page.locator('input[name="requested_email"]').wait_for(
+            state="visible", timeout=WAIT)
+        page.wait_for_timeout(400)
+        pin = page.locator('input[name="pin_number"]').input_value()
+        verify(pin == "T3UI-EMP", f"PIN not pre-filled, got {pin!r}")
+        page.fill('input[name="requested_email"]', "tier.three@bracu.ac.bd")
+        page.locator('button:has-text("Submit Request")').first.click()
+        text(page, "Request Submitted")
+
+    check("the BU email form pre-fills and submits", bu_email)
+
+    context.close()
+
+
+# --------------------------------------------------------------------------
 # Public area
 # --------------------------------------------------------------------------
 def public_area(browser):
@@ -546,6 +620,7 @@ def main():
             browser = pw.chromium.launch(headless=args.headless)
             try:
                 signed_in_area(browser)
+                employee_area(browser)
                 public_area(browser)
             finally:
                 browser.close()

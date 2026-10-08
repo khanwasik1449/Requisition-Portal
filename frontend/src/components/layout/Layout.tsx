@@ -53,6 +53,9 @@ export function Layout() {
   // template gates them — this is the "Requisitions" menu contents.
   const { cards: requisitionCards, loading: cardsLoading } = useVisibleHomeCards()
 
+  // The Requisitions menu is for everyone except the admin account.
+  const isEmployee = !!user && user.role !== 'admin'
+
   // Close sidebar and the Requisitions menu on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false)
@@ -255,7 +258,9 @@ export function Layout() {
             </div>
           </div>
           <div className="topbar-right">
-            {/* Requisitions launcher — the landing-page cards, minus Staff Sign In */}
+            {/* Requisitions launcher — the landing-page cards, minus Staff Sign In.
+                Shown to everyone except the admin. */}
+            {isEmployee && (
             <div className="dropdown topbar-requisitions" ref={reqRef}>
               <button
                 type="button"
@@ -279,6 +284,7 @@ export function Layout() {
                 )}
               </ul>
             </div>
+            )}
 
             <div className="topbar-user">
               <div className="topbar-user-info">

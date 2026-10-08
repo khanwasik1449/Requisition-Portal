@@ -163,6 +163,7 @@ export const endpoints = {
   employee: (pin: string) => `/employees/${encodeURIComponent(pin)}/`,
   employeeImport: () => '/employees/import/',
   employeeLookup: () => '/employees/lookup/',
+  myEmployee: () => '/employees/mine/',
 
   // Payslips
   payslips: () => '/payslips/',
@@ -188,6 +189,7 @@ export const endpoints = {
     `/notifications/track/${reqType}/${id}/`,
   sendReminder: (reqType: string, id: number) =>
     `/notifications/send-reminder/${reqType}/${id}/`,
+  buEmailRequest: () => '/bu-email/request/',
 
   // Dashboard
   dashboardStats: () => '/dashboard/stats/',

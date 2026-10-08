@@ -17,7 +17,7 @@ from .views import (
     transport_track, transport_history, transport_report, transport_report_export,
     my_requisitions, portal_choices,
     signup, documentation, notification_action, notification_track,
-    notification_send_reminder,
+    notification_send_reminder, bu_email_request,
 )
 
 router = DefaultRouter()
@@ -81,6 +81,10 @@ urlpatterns = [
     path('notifications/track/<str:req_type>/<int:pk>/', notification_track, name='notification-track'),
     path('notifications/send-reminder/<str:req_type>/<int:pk>/',
          notification_send_reminder, name='notification-send-reminder'),
+
+    # BRAC University email request -- new in-app form (main links to a
+    # Google Form), so it gets its own route rather than a ViewSet.
+    path('bu-email/request/', bu_email_request, name='bu-email-request'),
 
     # Router
     path('', include(router.urls)),

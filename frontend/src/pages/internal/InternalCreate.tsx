@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '@/api/axios'
+import { FormLoading } from '@/components/FormLoading'
 import { useStaffDefaults } from '@/lib/staffDefaults'
 
 interface ItemRow {
@@ -16,6 +17,10 @@ export function InternalCreate() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [items, setItems] = useState<ItemRow[]>([{ name: '', quantity: 1, purpose: '' }])
   const staffDefaults = useStaffDefaults()
+
+  // The employee lookup is async and `defaultValue` is only read on mount, so
+  // hold the form until it lands — otherwise the PIN stays blank.
+  if (staffDefaults.loading) return <FormLoading />
 
   const addItem = () => {
     setItems([...items, { name: '', quantity: 1, purpose: '' }])
